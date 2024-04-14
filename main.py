@@ -1,9 +1,6 @@
 from triangulation import Triangulation
-from isoconturer import IsoConturer
+from isocontourer import IsoConturer
 from triangulation_classes import Point
-
-
-
 
 from visualisation import plot_triangulation
 
@@ -33,11 +30,11 @@ surface.filter_triangles(1000, 5)
 surface.get_bounds()
 
 #surface.levels = real_levels
-surface.define_contours_levels(0, 1.5)
+#surface.levels = [145]
+surface.define_contours_levels(0, 1)
 surface.build_contour_lines()
-#surface.contours_levels()
-surface.smooth_contour_lines(5,0)
-#surface.build_isocontours()
+surface.smooth_contour_lines(5,0.25)
+
 
 plot_triangulation(surface)
 

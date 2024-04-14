@@ -278,13 +278,14 @@ class Triangulation:
         gutils = GeometryTools()
         for contour_line in self.contour_lines:
             contour_line.points = gutils.remove_close_points(contour_line.points)
-            curve = gutils.CatmullRomChain(contour_line.points, nPoints, alpha)
+            #curve = gutils.CatmullRomChain(contour_line.points, nPoints, alpha)
+            curve = gutils.catmull_rom_spline(contour_line.points, nPoints, alpha)
             smooth_line = IsoLine(contour_line.height)
 
             smooth_line.points = curve
             smooth_contour_lines.append(smooth_line)
         #self.contour_lines = smooth_contour_lines
-        self.sm_contour_lines = smooth_contour_lines
+        self.contour_lines = smooth_contour_lines
 
 
 

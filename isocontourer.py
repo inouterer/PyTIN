@@ -176,4 +176,4 @@ class IsoConturer:
                     isocontour.to_height = round(max_height,1)
 
         #Сортируем по возрастанию нижней высоты
-        self.isocontours = sorted(self.isocontours, key=lambda x: x.from_height)
+        self.isocontours = sorted(self.isocontours, key=lambda x: x.from_height, reverse=False)
