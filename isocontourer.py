@@ -1,17 +1,12 @@
 from geometrytools import GeometryTools
 from triangulation_classes import IsoLine, Isocontour, Point
 
-
-import matplotlib.pyplot as plt
-
-
-import random
 from typing import List
 
 
 class IsoConturer:
     """
-    Структура и методы для построения изоконтуров
+    Структура графа и методы для построения изоконтуров. 
     """
     def __init__(self, levels=[]) -> None:
         self.points = []
@@ -176,11 +171,12 @@ class IsoConturer:
                     isocontour.from_height = round(min_height,1)
                     isocontour.to_height = round(max_height,1)
             isocontour.rgb_color = self.interpolate_color(min_level, max_level, isocontour.from_height, isocontour.to_height)
-        #Сортируем по возрастанию нижней высоты
+        #Сортируем по возрастанию нижней высоты изоконтура, для корректности отображения на карте
         self.isocontours = sorted(self.isocontours, key=lambda x: x.from_height, reverse=False)
 
 
     def interpolate_color(self, min_height, max_height, from_height, to_height):
+        """Интерполяция градиента для изоконтуров"""
         
         # Нормализуем высоты к интервалу [0, 1]
         norm_from_height = (from_height - min_height) / (max_height - min_height)

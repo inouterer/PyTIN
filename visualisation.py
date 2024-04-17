@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 
 #Отобразим результат
 def plot_triangulation(surface):
+    """Отобразить треугольники и изолинии в матплотлибе
+    """
+        
     plt.figure(figsize=(10, 10))
 
     # Визуализация ребер триангуляции

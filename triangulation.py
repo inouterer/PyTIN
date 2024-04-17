@@ -135,7 +135,7 @@ class Triangulation:
     
     #Функция, удаляющая кратные ребра
     def delete_multiples_edges (self, edges):
-        #Удаляем кратные ребра
+        """Удаляем кратные ребра."""
         contour_edges = []
         for edge in edges:
             count = 0
@@ -147,8 +147,8 @@ class Triangulation:
             count = 0
         return contour_edges
 
-    # Создаём большой треугольник, включающий все точки набора  
     def make_big_triangle(self, points):
+        """Создаём большой треугольник, включающий все точки набора  """
         minx = min(p.x for p in points)
         maxx = max(p.x for p in points)
         miny = min(p.y for p in points)
@@ -164,8 +164,12 @@ class Triangulation:
             Point(midx + 10 * dxy, midy - 10 * dxy, 0)
         ]
 
-    #Удаляет из триангуляции 
+    
     def filter_triangles(self, max_lenght, min_angle):
+        """Удалить из триангуляции треугольники не соответствующие критериям
+        
+        по минимальному углу и длине ребра"""
+
         if self.triangles == []:
             return []
         filtered_triangles = []
@@ -179,14 +183,13 @@ class Triangulation:
     #      Методы для построения изолиний     #        
     ###########################################
 
-    #Проверка пересечения ребра с высотой
     def find_intersection(self, edge, h):
-        # """
-        # Находит точку пересечения ребра с плоскостью заданной высоты.
-        # :param edge: объект Edge
-        # :param h: высота плоскости
-        # :return: кортеж (x, y) координат точки пересечения или None, если ребро полностью лежит в плоскости
-        # """
+        """
+        Находит точку пересечения ребра с плоскостью заданной высоты.
+        :param edge: объект Edge
+        :param h: высота плоскости
+        :return: кортеж (x, y) координат точки пересечения или None, если ребро полностью лежит в плоскости
+        """
         x1, y1, z1 = edge.start.x, edge.start.y, edge.start.z
         x2, y2, z2 = edge.end.x, edge.end.y, edge.end.z
         dz = z2 - z1
@@ -205,8 +208,9 @@ class Triangulation:
         y = y1 + t * (y2 - y1)
         return Point(x, y, h)
 
-    #Определим список отметок по заданному шагу.
+    
     def define_contours_levels(self, start=0, step=1):
+        """Определяет список отметок по заданному шагу."""
         if not self.points:
             return []
 
@@ -243,15 +247,14 @@ class Triangulation:
         return
 
 
-    #Построение изолиний
     def build_contour_lines (self):
         """Построение изолиний"""
         
         def trace_contour_line(height: float):
-            """Трассируем изолинии"""
+            """Трассируем изолинии. Просто итерируются все треугольники и по ним строятся отдельные ребра изолиний"""
             contour_edges = []
             for triangle in self.triangles:
-                #Находим точки изолинии в трегольнике
+                #Находим точки изолинии в треугольнике
                 edge_points = []
                 for edge in triangle.edges:
                     contour_point = self.find_intersection(edge, height)
@@ -259,18 +262,22 @@ class Triangulation:
                         edge_points.append(contour_point)
                 if edge_points:
                     contour_edges.append(edge_points)
-            return contour_edges
-                
+            return contour_edges        
+        
         heights = self.levels
+
         print (self.levels)
-        #heights = [131.98]
+
         contour_lines = []
+
         gutils = GeometryTools()
+
         for height in heights:
             contour_edges = trace_contour_line(height)
             if contour_edges:
                 while contour_edges:
                     contour_line = IsoLine(height=round(height,1))
+                    #Собрать изолинию из лапши
                     assembled_edges, contour_edges = gutils.assemble_polygon_from_noodles(contour_edges)
                     contour_line.points = assembled_edges 
                     contour_lines.append(contour_line)
@@ -280,15 +287,19 @@ class Triangulation:
         return
 
     def cull_contour_lines (self, threshold=0.1):
+        """Прореживает полилинии.
+        
+        Помогает уменьшить каракули возле отметок, когда их высота близка к уровню изолинии """
         cull_contour_lines = []
         gutils = GeometryTools()
         for contour_line in self.contour_lines:
             contour_line.points = gutils.remove_close_points(contour_line.points, threshold)
             cull_contour_lines.append(contour_line)
         self.contour_lines = cull_contour_lines
+        return
     
     def smooth_contour_lines (self, nPoints, alpha):
-        
+        """Сгладить полилинию"""
         smooth_contour_lines = []
         gutils = GeometryTools()
         for contour_line in self.contour_lines:
@@ -296,11 +307,11 @@ class Triangulation:
             smooth_contour_line = IsoLine(height=contour_line.height)         
             smooth_contour_line.points = gutils.cubic_hermite_spline(points, nPoints, alpha)
             smooth_contour_lines.append(smooth_contour_line)
-        #self.contour_lines = smooth_contour_lines
         self.sm_contour_lines = smooth_contour_lines
 
     def insert_custom_bounds (self):
-        
+        """Добавить свой внешний полигон.
+        Вершинам присвоятся значения соседних отметок, после чего они войдут в исходный набор """
         def distance_between_points(p1, p2):
             """Calculate the distance between two points."""
             dx = p2.x - p1.x
@@ -313,4 +324,5 @@ class Triangulation:
             closest_point_index = distances.index(min_distance)
             point.z = self.points[closest_point_index].z
         self.points.extend(self.custom_bounds)
+       
         return

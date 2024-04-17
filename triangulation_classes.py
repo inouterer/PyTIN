@@ -1,5 +1,4 @@
 import math
-import matplotlib.pyplot as plt
 
 class Point:
     """
@@ -195,7 +194,7 @@ class Triangle:
 
 
 class Isocontour:
-    """Изоконтуры"""
+    """Изоконтуры это замкнутые фигуры между изолиниями"""
     def __init__(self, from_height, to_height):
         self.from_height = from_height
         self.to_height = to_height

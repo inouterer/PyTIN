@@ -1,7 +1,7 @@
 from triangulation_classes import Point
 
 class GeometryTools:
-    """Класс для реализации преобразований линейной геометриии.
+    """Класс для реализации преобразований линейной геометрии.
 
     Оборот полигона по часовой, сборка линий из нарезки и т.д.
 
@@ -12,6 +12,7 @@ class GeometryTools:
     
     def remove_close_points(self, polyline, threshold=1):
         """Убирает очень короткие ребра полилинии, всегда оставляя первую и последнюю точки"""
+
         new_polyline = [polyline[0]]  # Начнем с первой точки, так как ее мы не удаляем
         for i in range(1, len(polyline) - 1):
             # Вычисляем расстояние между текущей точкой и предыдущей
@@ -28,10 +29,13 @@ class GeometryTools:
         if len(new_polyline) > 2:
             if ((polyline[-1].x - new_polyline[-2].x) ** 2 + (polyline[-1].y - new_polyline[-2].y) ** 2) ** 0.5 <= threshold:
                 del new_polyline[-2]
+        
         return new_polyline
     
-    # Порядок вершин всегда по часовой
+    
     def ensure_clockwise (self):
+        """Порядок вершин всегда по часовой стрелке"""
+
         points = self.polygon
         area = 0
         n = len(points)
@@ -50,7 +54,8 @@ class GeometryTools:
     #Собираем линии из кусочков
     def assemble_polygon_from_noodles(self, noodles):#noodles это список списков точек
         """Собирает лапшу (список списка точек) в одну полилинию
-        !!! Оставшуюся лапшу возвращает !!!
+
+        Оставшуюся лапшу возвращает
         """
         # if len (noodles) == 1:
         #     polyline = noodles[0]
@@ -224,16 +229,17 @@ class GeometryTools:
 
 
     def cubic_hermite_spline(self, P, num_points = 10, tau=0.5):
+        """Кубический сплайн Хермита"""
         
         def distance_between_points(p1, p2):
-            """Calculate the distance between two points."""
+            """Расстояние между точками"""
             dx = p2.x - p1.x
             dy = p2.y - p1.y
             return (dx ** 2 + dy ** 2) ** 0.5
         
         
         def tau_correction(p1,p2,p3,p4, tau):
-            
+            """Коррекция натяжение на участках, где управляющие отрезки значительно длиннее итерируемого"""
             l1 = distance_between_points(p1,p2)
             l2 = distance_between_points(p2,p3)
             l3 = distance_between_points(p3,p4)
@@ -251,7 +257,7 @@ class GeometryTools:
 
 
         def cubic_hermite(height, p0, p1, p2, p3, num_points, tau):
-            """Generate points for a Cubic Hermite spline segment."""
+            """Создать точки к среднему сегменту в квадруплексе"""
             points = []
             
             for i in range(num_points):
@@ -269,6 +275,7 @@ class GeometryTools:
                 y = h00 * p1.y + h10 * ((p2.y - p0.y) * tau) + h01 * p2.y + h11 * ((p3.y - p1.y) * tau)
 
                 points.append(Point(x, y, height))
+
             return points
         
         # Создание сплайна
@@ -276,13 +283,13 @@ class GeometryTools:
         spline_points = []
         if len(P) < 3:
             return P
-        if P[0] == P[-1]:
+        if P[0] == P[-1]: #Для замкнутого контура
             del P[-1]
             P = [P[-2]] + [P[-1]] + P + [P[0]]
             for i in range (0, len(P)-3):
                 spline_points.extend(cubic_hermite(height, P[i], P[i+1], P[i+2], P[i+3], num_points, tau_correction(P[i], P[i+1], P[i+2], P[i+3], tau)))
             spline_points = spline_points + [spline_points[0]]
-        else:
+        else:#Для незамкнутой линии
             P = [P[0]] + P + [P[-1]]
             for i in range (0, len(P)-3):
                 spline_points.extend(cubic_hermite(height, P[i], P[i+1], P[i+2], P[i+3], num_points, tau_correction(P[i], P[i+1], P[i+2], P[i+3], tau)))
