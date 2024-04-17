@@ -4,6 +4,7 @@ from triangulation_classes import Edge
 from triangulation_classes import Point
 from triangulation_classes import IsoLine
 from geometrytools import GeometryTools
+import copy
 
 class Triangulation: 
     """ Это главный класс поверхности на основе триангуляции Делоне"""
@@ -11,6 +12,7 @@ class Triangulation:
     def __init__(self):
         self.triangles = []
         self.bounds = []
+        self.custom_bounds = []
         self.contour_lines = []
         self.sm_contour_lines = []
         self.isocontours = []
@@ -31,7 +33,7 @@ class Triangulation:
     ###########################################    
     
     
-    def triangulate(self, points: List[Point]):
+    def triangulate(self, points):
         """Функция, находящая триангуляцию"""
         self.points = points
         n = len(points)
@@ -213,7 +215,7 @@ class Triangulation:
 
         # Вычисляем первый уровень внутри диапазона, начиная от start
         # Настройка начального уровня на ближайший возможный в пределах высот
-        start = max(min_height, start)
+        start = min(min_height, start)
         if start > max_height:
             return []  # Если начальное значение выше максимума, возвращаем пустой список
 
@@ -237,6 +239,8 @@ class Triangulation:
                     corrected_height -= eps
                 height_values.append(corrected_height)
         self.levels = height_values
+        
+        return
 
 
     #Построение изолиний
@@ -273,21 +277,40 @@ class Triangulation:
 
         self.contour_lines = contour_lines
 
+        return
+
+    def cull_contour_lines (self, threshold=0.1):
+        cull_contour_lines = []
+        gutils = GeometryTools()
+        for contour_line in self.contour_lines:
+            contour_line.points = gutils.remove_close_points(contour_line.points, threshold)
+            cull_contour_lines.append(contour_line)
+        self.contour_lines = cull_contour_lines
+    
     def smooth_contour_lines (self, nPoints, alpha):
+        
         smooth_contour_lines = []
         gutils = GeometryTools()
         for contour_line in self.contour_lines:
-            contour_line.points = gutils.remove_close_points(contour_line.points)
-            #curve = gutils.CatmullRomChain(contour_line.points, nPoints, alpha)
-            curve = gutils.catmull_rom_spline(contour_line.points, nPoints, alpha)
-            smooth_line = IsoLine(contour_line.height)
-
-            smooth_line.points = curve
-            smooth_contour_lines.append(smooth_line)
+            points = copy.copy(contour_line.points)
+            smooth_contour_line = IsoLine(height=contour_line.height)         
+            smooth_contour_line.points = gutils.cubic_hermite_spline(points, nPoints, alpha)
+            smooth_contour_lines.append(smooth_contour_line)
         #self.contour_lines = smooth_contour_lines
-        self.contour_lines = smooth_contour_lines
+        self.sm_contour_lines = smooth_contour_lines
 
-
-
-
-    
+    def insert_custom_bounds (self):
+        
+        def distance_between_points(p1, p2):
+            """Calculate the distance between two points."""
+            dx = p2.x - p1.x
+            dy = p2.y - p1.y
+            return (dx ** 2 + dy ** 2) ** 0.5
+        
+        for point in self.custom_bounds:
+            distances = [distance_between_points(p, point) for p in self.points]
+            min_distance = min(distances)
+            closest_point_index = distances.index(min_distance)
+            point.z = self.points[closest_point_index].z
+        self.points.extend(self.custom_bounds)
+        return

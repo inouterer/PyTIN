@@ -14,14 +14,15 @@ def plot_triangulation(surface):
     for i in range(len(surface.bounds)):
         plt.plot([surface.bounds[i - 1].x, surface.bounds[i].x], [surface.bounds[i - 1].y, surface.bounds[i].y], color='blue')
     
-    # Добавление точек на границе с отметками
+    # Добавление точек с отметками
     i=0
-    for point in surface.bounds:
+    for point in surface.points:
         plt.scatter(point.x, point.y, color='red')  # Рисуем точку
-        plt.annotate(f'h{point.z}n{i}', (point.x, point.y), textcoords="offset points", xytext=(0,10), ha='center')
+        plt.annotate(f'h{round(point.z,2)} n{i}', (point.x, point.y), textcoords="offset points", xytext=(0,10), ha='center')
         i+=1
 
     # Визуализация изолиний
+
     for contour_line in surface.contour_lines:
         # Генерация случайного цвета
         color = np.random.rand(3,)
@@ -43,45 +44,53 @@ def plot_triangulation(surface):
     plt.grid(True)
     plt.show()
 
-def visualize_contours(points, isolines, bounds, isocontours):
-        """Отобразить изоконтуры IsoCоnturer в матплотлибе
-        """
-        # Визуализация точек
-        for i, point in enumerate(points):
-            plt.plot(point.x, point.y, 'bo')  # Синие точки
-            plt.text(point.x, point.y, f"{i}z{round(point.z, 2)}", fontsize=8, verticalalignment='bottom', horizontalalignment='right')
+def visualize_contours(graf_points, points, isolines, bounds, isocontours):
+    """Отобразить изоконтуры IsoCоnturer в матплотлибе
+    """
+    # Визуализация границ
+    x = [point.x for point in bounds]
+    y = [point.y for point in bounds]
+    plt.plot(x, y, 'g-')  # Зеленая линия
 
-        # Визуализация изолиний и их точек
-        for isoline in isolines:
-            x = [point.x for point in isoline]
-            y = [point.y for point in isoline]
-            #plt.plot(x, y, 'r-')  # Красные линии
+    import random
 
-            # for point in points_list:
-            #     plt.plot(point.x, point.y, 'ro')  # Красные точки
+    # Визуализация изоконтуров с заливкой
+    for isocontour in isocontours:
+        contour_points = isocontour.get_contour_points()
+        # Разделяем координаты x и y
+        x_values = [point.x for point in contour_points]
+        y_values = [point.y for point in contour_points]
+        # Добавляем первую точку в конец для замыкания линии
+        x_values.append(contour_points[0].x)
+        y_values.append(contour_points[0].y)
 
-        # Визуализация границ
-        x = [point.x for point in bounds]
-        y = [point.y for point in bounds]
-        plt.plot(x, y, 'g-')  # Зеленая линия
+        color = tuple(c / 255 for c in isocontour.rgb_color)  # Нормализуем значения цвета к диапазону [0, 1]
+        plt.fill(x_values, y_values, color=color)  # Заливка с случайным цветом
 
-        import random
+    # Визуализация изолиний и их точек
+    # for isoline in isolines:
+    #     x = [point.x for point in isoline]
+    #     y = [point.y for point in isoline]
+    #     plt.plot(x, y, 'r-')  # Красные линии
 
-        # Визуализация изоконтуров с заливкой
-        for isocontour in isocontours:
-            contour_points = isocontour.get_contour_points()
-            # Разделяем координаты x и y
-            x_values = [point.x for point in contour_points]
-            y_values = [point.y for point in contour_points]
-            # Добавляем первую точку в конец для замыкания линии
-            # x_values.append(contour_points[0].x)
-            # y_values.append(contour_points[0].y)
-            # Случайный цвет в формате RGB
-            color = (random.random(), random.random(), random.random())
-            plt.fill(x_values, y_values, color=color)  # Заливка с случайным цветом
+        # for point in points_list:
+        #     plt.plot(point.x, point.y, 'ro')  # Красные точки
 
-        plt.xlabel('X')
-        plt.ylabel('Y')
-        plt.title('Visualization')
-        plt.grid(True)
-        plt.show()
+    # Добавление точек с отметками
+    i=0
+    for point in points:
+        plt.scatter(point.x, point.y, color='red')  # Рисуем точку
+        plt.annotate(f'h{round(point.z,2)} n{i}', (point.x, point.y), textcoords="offset points", xytext=(0,10), ha='center')
+        i+=1
+    # Добавление точек с отметками
+    i=0
+    for point in graf_points:
+        plt.scatter(point.x, point.y, color='blue')  # Рисуем точку
+        plt.annotate(f'h{round(point.z,2)} n{i}', (point.x, point.y), textcoords="offset points", xytext=(0,10), ha='center')
+        i+=1
+
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    plt.title('Visualization')
+    plt.grid(True)
+    plt.show()

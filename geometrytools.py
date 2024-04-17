@@ -11,7 +11,7 @@ class GeometryTools:
 
     
     def remove_close_points(self, polyline, threshold=1):
-        """Убирает очень короткие ребра полилинии, всегда осталяя первую и последнюю точки"""
+        """Убирает очень короткие ребра полилинии, всегда оставляя первую и последнюю точки"""
         new_polyline = [polyline[0]]  # Начнем с первой точки, так как ее мы не удаляем
         for i in range(1, len(polyline) - 1):
             # Вычисляем расстояние между текущей точкой и предыдущей
@@ -24,9 +24,10 @@ class GeometryTools:
  
         # Добавляем последнюю точку
         new_polyline.append(polyline[-1])
-        # Проверяем предпоследнюю и удаляем, если она слишком близко
-        if ((polyline[-1].x - new_polyline[-2].x) ** 2 + (polyline[-1].y - new_polyline[-2].y) ** 2) ** 0.5 <= threshold:
-            del new_polyline[-2]
+        # Проверяем предпоследнюю и удаляем, если она слишком близко, но не если у нас всего две точки в линии
+        if len(new_polyline) > 2:
+            if ((polyline[-1].x - new_polyline[-2].x) ** 2 + (polyline[-1].y - new_polyline[-2].y) ** 2) ** 0.5 <= threshold:
+                del new_polyline[-2]
         return new_polyline
     
     # Порядок вершин всегда по часовой
@@ -51,6 +52,9 @@ class GeometryTools:
         """Собирает лапшу (список списка точек) в одну полилинию
         !!! Оставшуюся лапшу возвращает !!!
         """
+        # if len (noodles) == 1:
+        #     polyline = noodles[0]
+        #     return polyline, noodles
         k = 0 
         polyline = []  # Создаем список с точками
         polyline = noodles[0] # Добавляем первую макаронину
@@ -95,7 +99,7 @@ class GeometryTools:
         Args:
             P (list): List of Point objects representing control points.
             nPoints (int): Number of points to generate on the curve.
-            alpha (float): Tension parameter.
+            alpha (float): tau parameter.
 
         Returns:
             list: List of Point objects representing points on the Catmull-Rom spline.
@@ -160,7 +164,7 @@ class GeometryTools:
 
 
         
-    def catmull_rom_spline(self, control_points, num_points = 10, tau=0.5):
+    def catmull_rom_spline(self, P, num_points = 10, tau=0.5):
         """Генерирует точки Catmull-Rom сплайна для замкнутои незамкнутой полилинии.
         
         У замкнутой последняя точка должна равняться первой"""
@@ -200,18 +204,87 @@ class GeometryTools:
             return points
   
         # Создание сплайна
-        height = control_points[0].z
+        height = P[0].z
         spline_points = []
-        if control_points[0] == control_points[-1]:
-            del control_points[-1]
-            control_points = [control_points[-2]] + [control_points[-1]] + control_points + [control_points[0]]
-            for i in range (0, len(control_points)-3):
-                spline_points.extend(catmull_rom_matrix(height, control_points[i], control_points[i+1], control_points[i+2], control_points[i+3], num_points, tau))
+        if len(P) < 3:
+            return P
+        if P[0] == P[-1]:
+            del P[-1]
+            P = [P[-2]] + [P[-1]] + P + [P[0]]
+            for i in range (0, len(P)-3):
+                spline_points.extend(catmull_rom_matrix(height, P[i], P[i+1], P[i+2], P[i+3], num_points, tau))
             spline_points = spline_points + [spline_points[0]]
         else:
-            control_points = [control_points[0]] + control_points + [control_points[-1]]
-            for i in range (0, len(control_points)-3):
-                spline_points.extend(catmull_rom_matrix(height, control_points[i], control_points[i+1], control_points[i+2], control_points[i+3], num_points, tau))
+            P = [P[0]] + P + [P[-1]]
+            for i in range (0, len(P)-3):
+                spline_points.extend(catmull_rom_matrix(height, P[i], P[i+1], P[i+2], P[i+3], num_points, tau))
 
         return spline_points
 
+
+
+    def cubic_hermite_spline(self, P, num_points = 10, tau=0.5):
+        
+        def distance_between_points(p1, p2):
+            """Calculate the distance between two points."""
+            dx = p2.x - p1.x
+            dy = p2.y - p1.y
+            return (dx ** 2 + dy ** 2) ** 0.5
+        
+        
+        def tau_correction(p1,p2,p3,p4, tau):
+            
+            l1 = distance_between_points(p1,p2)
+            l2 = distance_between_points(p2,p3)
+            l3 = distance_between_points(p3,p4)
+            
+            if l1==0:
+                tau_corr = l2/l3
+            elif l3 == 0:
+                tau_corr = l2/l1
+            else:
+                tau_corr = min (l2/l1 , l2/l3)
+            
+            if tau_corr < 1:
+                tau*=tau_corr
+            return tau
+
+
+        def cubic_hermite(height, p0, p1, p2, p3, num_points, tau):
+            """Generate points for a Cubic Hermite spline segment."""
+            points = []
+            
+            for i in range(num_points):
+                t = i / float(num_points - 1)
+                t2 = t * t
+                t3 = t2 * t
+
+                # Cubic Hermite spline equation
+                h00 = 2*t3 - 3*t2 + 1
+                h10 = t3 - 2*t2 + t
+                h01 = -2*t3 + 3*t2
+                h11 = t3 - t2
+
+                x = h00 * p1.x + h10 * ((p2.x - p0.x) * tau) + h01 * p2.x + h11 * ((p3.x - p1.x) * tau)
+                y = h00 * p1.y + h10 * ((p2.y - p0.y) * tau) + h01 * p2.y + h11 * ((p3.y - p1.y) * tau)
+
+                points.append(Point(x, y, height))
+            return points
+        
+        # Создание сплайна
+        height = P[0].z
+        spline_points = []
+        if len(P) < 3:
+            return P
+        if P[0] == P[-1]:
+            del P[-1]
+            P = [P[-2]] + [P[-1]] + P + [P[0]]
+            for i in range (0, len(P)-3):
+                spline_points.extend(cubic_hermite(height, P[i], P[i+1], P[i+2], P[i+3], num_points, tau_correction(P[i], P[i+1], P[i+2], P[i+3], tau)))
+            spline_points = spline_points + [spline_points[0]]
+        else:
+            P = [P[0]] + P + [P[-1]]
+            for i in range (0, len(P)-3):
+                spline_points.extend(cubic_hermite(height, P[i], P[i+1], P[i+2], P[i+3], num_points, tau_correction(P[i], P[i+1], P[i+2], P[i+3], tau)))
+
+        return spline_points

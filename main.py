@@ -6,9 +6,9 @@ from visualisation import plot_triangulation
 
 from visualisation import visualize_contours
 
-from sample_data import point_in, trn_in, real, real_levels #Main тут код запуска
+from sample_data import point_in, trn_in, real, real_levels, user_bounds #Main тут код запуска
 
-# Добавим точки по исходному набору
+# Добавим точки по исходному набору в формате [x,y,z,...]
 def input_data (point_in):
     points = []
     for i in range(0,len(point_in)-1, 3):
@@ -18,29 +18,59 @@ def input_data (point_in):
 
 triangles = []
 
-# import random
-# num_points = 1000
-# min_coord, max_coord = 0, 1000
-# points = [Point(random.uniform(min_coord, max_coord), random.uniform(min_coord, max_coord),0) for _ in range(num_points)]
 
-points = input_data(point_in) #Создали список объектов класса Points по рабочему набору
+import random
+num_points = 100
+min_coord, max_coord = 0, 1000
+rnd_points = [Point(random.uniform(min_coord, max_coord), random.uniform(min_coord, max_coord),random.uniform(min_coord, max_coord)/100+10) for _ in range(num_points)]
+
+points = input_data(point_in)
+
+#points = input_data(point_in) #Создали список объектов класса Points по рабочему набору
+custom_bounds_points =  input_data(user_bounds) #Создали список объектов класса Points по пользовательскому контуру
+
+#Создаём поверхность
 surface = Triangulation()
+#Добавляем в поверхность списком точки класса Points и создаём триангулляцию.
 surface.triangulate(points)
-surface.filter_triangles(1000, 5)
+#Фильтруем треугольники по максимальной длине и минимальному углу
+#surface.filter_triangles(50, 1)
+#Определяем границы триангуляции по внешним рёбрам треугольников
 surface.get_bounds()
 
-#surface.levels = real_levels
-#surface.levels = [145]
-surface.define_contours_levels(0, 1)
+#Добавим пользовательские внешние границы
+surface.custom_bounds = custom_bounds_points
+
+#Добавим пользовательские внешние границы в набор точек
+surface.insert_custom_bounds()
+
+#Снова триангулируем
+surface.triangulate(points)
+
+#surface.levels = [-32]
+
+#Генерируем уровни
+step = 1
+surface.define_contours_levels(52, 1)
+
+#Строим изолинии
 surface.build_contour_lines()
-surface.smooth_contour_lines(5,0.25)
 
+#Прорежаем изолинии
+surface.cull_contour_lines(1)
+#Сглаживаем спрайном Катмулла - Рома (точек на ребро и параметр натяжения 0-1)
+surface.smooth_contour_lines(10, 0.5)
 
+#Визуализация в matplotlib
 plot_triangulation(surface)
 
-graf = IsoConturer()
+#Создаём граф для изоконтуров
+graf = IsoConturer(surface.levels)
+#Добавляем туда границы сетки
 graf.add_bounds(surface.bounds)
-graf.add_isolines(surface.contour_lines)
-graf.build_isocontours()
-
-visualize_contours(graf.points, graf.isolines, graf.bounds, graf.isocontours)
+#Добавляем изолинии
+graf.add_isolines(surface.sm_contour_lines)
+#Строим изоконтура
+graf.build_isocontours(step)
+#Показываем
+visualize_contours(graf.points, surface.points, graf.isolines, graf.bounds, graf.isocontours)

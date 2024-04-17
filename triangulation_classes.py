@@ -13,10 +13,14 @@ class Point:
         self.marked = False
     def __ne__(self, other):
         # Перегрузка оператора неравенства (!=)
-        return (self.x != other.x) or (self.y != other.y)
+        tolerance = 0.001
+        return  (abs(self.x - other.x) > tolerance and
+                 abs(self.y - other.y) > tolerance)
     def __eq__(self, other):
-        # Перегрузка оператора неравенства (!=)
-        return (self.x == other.x) and (self.y == other.y)
+        # Перегрузка оператора равенства (==)
+        tolerance = 0.001
+        return  (abs(self.x - other.x) <= tolerance and
+                 abs(self.y - other.y) <= tolerance)
 
 
 class Edge:
@@ -196,6 +200,7 @@ class Isocontour:
         self.from_height = from_height
         self.to_height = to_height
         self.points = []
+        rgb_color = []
     def add_points(self, points):
         self.points.extend(points)
 
@@ -203,4 +208,4 @@ class Isocontour:
         return self.points
 
     def clear_contour_points(self):
-        self.points = []
+        self.points = ()

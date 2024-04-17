@@ -13,12 +13,13 @@ class IsoConturer:
     """
     Структура и методы для построения изоконтуров
     """
-    def __init__(self) -> None:
+    def __init__(self, levels=[]) -> None:
         self.points = []
         self.isolines = []
         self.sections = []
         self.bounds = []
         self.isocontours = []
+        self.levels = levels
 
     def add_bounds (self, bounds: List[Point]):
         """Получит границы триангуляции"""
@@ -42,6 +43,7 @@ class IsoConturer:
         """Сортировка точек на ребре по их проекции на вектор ребра"""
         points.sort(key=lambda p: ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)))
         for point in points:
+            #Помечаем точки выходы и входа изолиний
             point.marked = True
         return points
 
@@ -66,85 +68,55 @@ class IsoConturer:
         return ordered_points[:-1] #Не добавляем последнюю точку, чтобы не задваивалась
 
     def find_isoline_for_point  (self, point):
-        """Ищем изолинию, в которой точка"""
+        """Ищем изолинию, в которой такая точка"""
         for isoline in self.isolines:
             if (isoline[0] == point) or (isoline[-1] == point):
                 return isoline
 
 
-    def build_isocontours (self):
+    def build_isocontours (self, step):
         """Непосредственно строим изоконтуры"""
-
-        def find_point_index(point):
-            """Поиск номера точки на контуре графа"""
-            for i, p in enumerate(self.points):
-                if point == p:
-                    return i
-            return -1
-
-        #Здесь мы создаём точки графа, проходя по контуру объекта на его узлах и
-        #на входах и выходах изолиний в порядке по часовой
-        edge_points = []
-        for isoline in self.isolines:
-            for point in isoline:
-                edge_points.append(point)
-        self.points = self.find_and_sort_points_on_polygon(edge_points)
-
-
-
-        #Добавляем замкнутые изолинии - они уже готовые изоконтуры
-        for isoline in self.isolines:
-            if isoline[0] == isoline[-1]:
-                low_level = isoline[-1].z #Нижнее значение изоконтура
-                iso = Isocontour(low_level, 0)  # Создаем новый объект Isocontour
-                iso.add_points(isoline)  # Добавляем точки в объект Isocontour
-                self.isocontours.append(iso)
-
-        #Сделаем ребра графа. 
-        if len(self.points) < 2:
-            return
-                # Создание отрезков между последовательными точками
-        self.sections = [[self.points[i], self.points[i + 1]] for i in range(len(self.points) - 1)]
-        # Добавление отрезка между последней и первой точкой, чтобы закрыть контур
-        self.sections.append([self.points[-1], self.points[0]])
-
 
         def find_section_index (point):
             """Поиск номера сегмента на контуре графа"""
             for i, section in enumerate(self.sections):
                 if point == section[0]:
                     return i
-
+            return
 
 
         def trace_isocontour():
+            """Построение изоконтуров из ребер графа и изолиний с замыканием"""
             visited_sections = []
             manager = GeometryTools()
             s = 0
+
             while len(visited_sections) < len(self.sections):
-                #Проходим по рёбрам или секциям графа и строим выходящие контуры
+                #Проходим по часовой стрелке по рёбрам (секциям) графа и находим непосещенную.
                 contour_noodle = []
                 isocontour = []
+                #Если вышли за индекс - начинаем снова
                 if s > len (self.sections)-1:
                         s = 0
                 section = self.sections[s]
+                #Если секция в посещенных - идём дальше
                 if section in visited_sections:
                     s+=1
                     continue
-
+                #Непосещенные секции последовательно собираем.
                 while len(visited_sections) < len(self.sections):
                     if section not in visited_sections:
                         visited_sections.append(section)
                         contour_noodle.append(section)
                         s+=1
-
+                    #Если вторая точка секции принадлежит входу изолинии - сцепляем её.
                     if section[-1].marked:
                         finded_isoline = self.find_isoline_for_point (section[-1])
                         contour_noodle.append(finded_isoline)
 
-
+                    #Собираем куски (и только секции и секции с изолиниями) вместе
                     isocontour, last_noodles = manager.assemble_polygon_from_noodles(contour_noodle)
-
+                
                     if section[-1].marked:
                         s = find_section_index (isocontour [-1])
 
@@ -157,12 +129,41 @@ class IsoConturer:
                         self.isocontours.append(iso)  # Добавляем объект Isocontour в список isocotours
                         break
                     section = self.sections[s]
+            return
+        
+        #Здесь мы создаём точки графа, проходя по контуру объекта на его узлах и
+        #на входах и выходах изолиний в порядке по часовой
+        edge_points = []
+        for isoline in self.isolines:
+            edge_points.append(isoline[0])
+            edge_points.append(isoline[-1])
+        self.points = self.find_and_sort_points_on_polygon(edge_points)
 
+
+        #Добавляем замкнутые изолинии - они уже готовые изоконтуры
+        for isoline in self.isolines:
+            if isoline[0] == isoline[-1]:
+                low_level = isoline[-1].z #Нижнее значение изоконтура
+                iso = Isocontour(low_level, low_level + step)  # Создаем новый объект Isocontour
+                iso.add_points(isoline)  # Добавляем точки в объект Isocontour
+                self.isocontours.append(iso)
+
+        #Сделаем ребра графа. 
+        if len(self.points) < 2:
+            return
+                # Создание отрезков между последовательными точками
+        self.sections = [[self.points[i], self.points[i + 1]] for i in range(len(self.points) - 1)]
+        # Добавление отрезка между последней и первой точкой, чтобы закрыть контур
+        self.sections.append([self.points[-1], self.points[0]])
+        
+        
         #self.visualize()
         trace_isocontour()
 
 
         #Находим диапазоны изолиний
+        min_level = min (self.levels)
+        max_level = max (self.levels)
         for isocontour in self.isocontours:
             levels = []
             for point in isocontour.points:
@@ -174,6 +175,25 @@ class IsoConturer:
                     max_height = max(levels)
                     isocontour.from_height = round(min_height,1)
                     isocontour.to_height = round(max_height,1)
-
+            isocontour.rgb_color = self.interpolate_color(min_level, max_level, isocontour.from_height, isocontour.to_height)
         #Сортируем по возрастанию нижней высоты
         self.isocontours = sorted(self.isocontours, key=lambda x: x.from_height, reverse=False)
+
+
+    def interpolate_color(self, min_height, max_height, from_height, to_height):
+        
+        # Нормализуем высоты к интервалу [0, 1]
+        norm_from_height = (from_height - min_height) / (max_height - min_height)
+        norm_to_height = (to_height - min_height) / (max_height - min_height)
+        
+        # Находим компоненты RGB цвета для синего, зеленого и красного
+        blue = 1.0 - norm_from_height  # Синий уменьшается с ростом высоты
+        green = 1.0 - abs(norm_from_height - 0.5) * 2  # Зеленый максимален посередине, минимален на краях
+        red = norm_from_height  # Красный увеличивается с ростом высоты
+        
+        # Конвертируем значения компонентов в диапазон [0, 255]
+        blue = int(blue * 255)
+        green = int(green * 255)
+        red = int(red * 255)
+        
+        return (red, green, blue)
