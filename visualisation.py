@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 #Отобразим результат
 def plot_triangulation(surface):
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(10, 10))
 
     # Визуализация ребер триангуляции
     for triangle in surface.triangles:
@@ -47,6 +47,9 @@ def plot_triangulation(surface):
 def visualize_contours(graf_points, points, isolines, bounds, isocontours):
     """Отобразить изоконтуры IsoCоnturer в матплотлибе
     """
+
+    plt.figure(figsize=(10, 10))
+
     # Визуализация границ
     x = [point.x for point in bounds]
     y = [point.y for point in bounds]
@@ -93,4 +96,5 @@ def visualize_contours(graf_points, points, isolines, bounds, isocontours):
     plt.ylabel('Y')
     plt.title('Visualization')
     plt.grid(True)
+    
     plt.show()

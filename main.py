@@ -3,21 +3,17 @@ from isocontourer import IsoConturer
 from triangulation_classes import Point
 
 from visualisation import plot_triangulation
-
 from visualisation import visualize_contours
 
-from sample_data import point_in, trn_in, real, real_levels, user_bounds #Main тут код запуска
+from sample_data import point_in, trn_in, real, real_levels, user_bounds
 
-# Добавим точки по исходному набору в формате [x,y,z,...]
+# Сгенерируем точки по исходному набору в формате [x,y,z,...]
 def input_data (point_in):
     points = []
     for i in range(0,len(point_in)-1, 3):
         point = Point(point_in[i], point_in[i+1], point_in[i+2])
         points.append(point)
     return points
-
-triangles = []
-
 
 import random
 num_points = 100
