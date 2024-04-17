@@ -20,7 +20,7 @@ num_points = 100
 min_coord, max_coord = 0, 1000
 rnd_points = [Point(random.uniform(min_coord, max_coord), random.uniform(min_coord, max_coord),random.uniform(min_coord, max_coord)/100+10) for _ in range(num_points)]
 
-points = input_data(point_in)
+points = input_data(real)
 
 #points = input_data(point_in) #Создали список объектов класса Points по рабочему набору
 custom_bounds_points =  input_data(user_bounds) #Создали список объектов класса Points по пользовательскому контуру
@@ -36,7 +36,7 @@ surface.triangulate(points)
 surface.get_bounds()
 
 #Добавим пользовательские внешние границы
-surface.custom_bounds = custom_bounds_points
+surface.custom_bounds = real_bounds_points
 
 #Добавим пользовательские внешние границы в набор точек
 surface.insert_custom_bounds()
@@ -49,7 +49,7 @@ surface.get_bounds()
 #surface.levels = [-32]
 
 #Генерируем уровни
-step = 2
+step = 10
 surface.define_contours_levels(0, step )
 
 #Строим изолинии

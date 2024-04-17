@@ -94,7 +94,36 @@ class Triangle:
                 points.append(edge.end)
         return points
 
-    # Вычисляет центр окружности через точки треугольника
+ 
+    def triangle_centroid(self):
+        """
+        Вычисляет центр треугольника по его вершинам.
+
+        :param p1: Первая вершина треугольника, объект Point.
+        :param p2: Вторая вершина треугольника, объект Point.
+        :param p3: Третья вершина треугольника, объект Point.
+        :return: Координаты центра треугольника в виде списка [x, y]."""
+
+        p1 = self.edges[0].start
+        p2 = self.edges[0].end
+        p3 = None
+        for edge in self.edges[1:]:
+            if edge.start in [p1, p2]:
+                p3 = edge.end
+                break
+            elif edge.end in [p1, p2]:
+                p3 = edge.start
+                break
+        if p3 is None:
+            raise ValueError("Unable to find third point of triangle")
+        
+        x = (p1.x + p2.x + p3.x) / 3
+        y = (p1.y + p2.y + p3.y) / 3
+        return [x, y]
+
+
+
+   # Вычисляет центр окружности через точки треугольника
     def circumcenter(self):
         p1 = self.edges[0].start
         p2 = self.edges[0].end

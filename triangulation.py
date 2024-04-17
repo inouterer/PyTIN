@@ -326,3 +326,32 @@ class Triangulation:
         self.points.extend(self.custom_bounds)
        
         return
+    
+    def remove_outer_triangles(self):
+        def is_inside_polygon(point, polygon):
+            """
+            Проверяет, находится ли точка внутри полигона.
+
+            :param point: Точка, представленная в виде списка из двух чисел [x, y].
+            :param polygon: Список вершин полигона, представленных в виде объектов Point.
+            :return: True, если точка внутри полигона, и False в противном случае.
+            """
+            n = len(polygon)
+            intersections = 0
+
+            for i in range(n):
+                p1 = polygon[i]
+                p2 = polygon[(i + 1) % n]
+                if ((p1.y <= point[1] and p2.y > point[1]) or
+                    (p1.y > point[1] and p2.y <= point[1])) and \
+                        point[0] < (p2.x - p1.x) * (point[1] - p1.y) / (p2.y - p1.y) + p1.x:
+                    intersections += 1
+
+            return intersections % 2 == 1
+
+        inner_triangles = []
+        for triangle in self.triangles:
+            if is_inside_polygon(triangle.triangle_centroid(), self.custom_bounds):
+                inner_triangles.append(triangle)
+        self.triangles = inner_triangles
+
