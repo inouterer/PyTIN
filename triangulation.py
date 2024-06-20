@@ -209,7 +209,7 @@ class Triangulation:
         return Point(x, y, h)
 
     
-    def define_contours_levels(self, start=0, step=1):
+    def define_contours_levels(self, low, step=1):
         """Определяет список отметок по заданному шагу."""
         if not self.points:
             return []
@@ -217,33 +217,34 @@ class Triangulation:
         min_height = min(point.z for point in self.points)
         max_height = max(point.z for point in self.points)
 
-        # Вычисляем первый уровень внутри диапазона, начиная от start
-        # Настройка начального уровня на ближайший возможный в пределах высот
-        start = min(min_height, start)
-        if start > max_height:
-            return []  # Если начальное значение выше максимума, возвращаем пустой список
-
-        # Генерация уровней высоты
+        # Создать список интервалов, начиная с 0
         height_values = []
-        current_height = start
-        eps = 0.01  # Малая величина для коррекции высоты изолиний
-        if not self.levels:
-            while current_height <= max_height:
-                corrected_height = current_height
-                # Проверяем и корректируем высоту, чтобы избежать точного совпадения с высотами точек
-                while any(abs(point.z - corrected_height) < eps for point in self.points):
-                    corrected_height -= eps
-                height_values.append(corrected_height)
-                current_height += step
-        else:
-            for current_height in self.levels:
-                corrected_height = current_height
-                # Проверяем и корректируем высоту, чтобы избежать точного совпадения с высотами точек
-                while any(abs(point.z - corrected_height) < eps for point in self.points):
-                    corrected_height -= eps
-                height_values.append(corrected_height)
-        self.levels = height_values
+        current_height = low
         
+        while current_height <= max_height:
+            height_values.append(current_height)
+            current_height += step
+        
+        # Отфильтровать интервалы в пределах от min_height до max_height
+        height_values = [height for height in height_values if min_height <= height <= max_height]
+        
+        # Если минимальная высота не входит в интервалы, добавляем её в начало
+        if height_values[0] > min_height:
+            height_values.insert(0, min_height)
+        
+        # Если максимальная высота не входит в интервалы, добавляем её в конец
+        if height_values[-1] < max_height:
+            height_values.append(max_height)
+        
+        eps = step * 0.01  # Малая величина для коррекции высоты изолиний, сотая доля шага
+        corrected_levels = []
+        for cur_level in height_values:
+            # Проверяем и корректируем высоту, чтобы избежать точного совпадения с высотами точек
+            while any(point.z == cur_level for point in self.points):
+                    cur_level -= eps
+            corrected_levels.append(cur_level)
+        self.levels = corrected_levels
+        print (self.levels)
         return
 
 
@@ -265,8 +266,6 @@ class Triangulation:
             return contour_edges        
         
         heights = self.levels
-
-        print (self.levels)
 
         contour_lines = []
 

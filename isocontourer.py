@@ -8,13 +8,14 @@ class IsoConturer:
     """
     Структура графа и методы для построения изоконтуров. 
     """
-    def __init__(self, levels=[]) -> None:
+    def __init__(self, levels=[], allpoints=[]) -> None:
         self.points = []
         self.isolines = []
         self.sections = []
         self.bounds = []
         self.isocontours = []
         self.levels = levels
+        self.allpoints = allpoints[0:len(allpoints)]
 
     def add_bounds (self, bounds: List[Point]):
         """Получит границы триангуляции"""
@@ -77,7 +78,7 @@ class IsoConturer:
             for i, section in enumerate(self.sections):
                 if point == section[0]:
                     return i
-            return
+            return False
 
 
         def trace_isocontour():
@@ -91,7 +92,7 @@ class IsoConturer:
                 contour_noodle = []
                 isocontour = []
                 #Если вышли за индекс - начинаем снова
-                if s > len (self.sections)-1:
+                if s >= len (self.sections)-1:
                         s = 0
                 section = self.sections[s]
                 #Если секция в посещенных - идём дальше
@@ -105,7 +106,7 @@ class IsoConturer:
                         contour_noodle.append(section)
                         s+=1
                     #Если вторая точка секции принадлежит входу изолинии - сцепляем её.
-                    if section[-1].marked:
+                    if section[-1].marked: #Маркированные точки графа относятся  к изолиниям, в отличии от точек контура
                         finded_isoline = self.find_isoline_for_point (section[-1])
                         contour_noodle.append(finded_isoline)
 
@@ -121,7 +122,8 @@ class IsoConturer:
                     if isocontour[0] == isocontour[-1]:
                         iso = Isocontour(0, 0)  # Создаем новый объект Isocontour
                         iso.add_points(isocontour)  # Добавляем точки в объект Isocontour
-                        self.isocontours.append(iso)  # Добавляем объект Isocontour в список isocotours
+                        if iso.calculate_area()>0.1:
+                            self.isocontours.append(iso)  # Добавляем объект Isocontour в список isocotours
                         break
                     section = self.sections[s]
             return
@@ -138,12 +140,17 @@ class IsoConturer:
         #Добавляем замкнутые изолинии - они уже готовые изоконтуры
         for isoline in self.isolines:
             if isoline[0] == isoline[-1]:
-                low_level = isoline[-1].z #Нижнее значение изоконтура
-                iso = Isocontour(low_level, low_level + step)  # Создаем новый объект Isocontour
+                iso = Isocontour(0, 0)  # Создаем новый объект Isocontour
                 iso.add_points(isoline)  # Добавляем точки в объект Isocontour
+
+                if iso.points[0].z < iso.find_point_inside(self.allpoints):
+                    iso.from_height, iso.to_height = iso.points[0].z, iso.points[0].z + step
+                else:
+                    iso.from_height, iso.to_height = iso.points[0].z - step, iso.points[0].z
                 self.isocontours.append(iso)
 
-        #Сделаем ребра графа. 
+
+        #Сделаем ребра графа sections. 
         if len(self.points) < 2:
             return
                 # Создание отрезков между последовательными точками
@@ -151,10 +158,8 @@ class IsoConturer:
         # Добавление отрезка между последней и первой точкой, чтобы закрыть контур
         self.sections.append([self.points[-1], self.points[0]])
         
-        
-        #self.visualize()
+        #Собираем изоконтуры, которые выходящие из графа
         trace_isocontour()
-
 
         #Находим диапазоны изолиний
         min_level = min (self.levels)
@@ -163,24 +168,25 @@ class IsoConturer:
             levels = []
             for point in isocontour.points:
                 for graf_point in self.points:
-                    if point == graf_point:
+                    if point == graf_point and point.z in self.levels:
                         levels.append(graf_point.z)
                 if levels:
                     min_height = min(levels)
                     max_height = max(levels)
-                    isocontour.from_height = round(min_height,1)
-                    isocontour.to_height = round(max_height,1)
+                    isocontour.from_height = min_height #round(min_height,1)
+                    isocontour.to_height = max_height #round(max_height,1)
             isocontour.rgb_color = self.interpolate_color(min_level, max_level, isocontour.from_height, isocontour.to_height)
-        #Сортируем по возрастанию нижней высоты изоконтура, для корректности отображения на карте
-        self.isocontours = sorted(self.isocontours, key=lambda x: x.from_height, reverse=False)
+        
+        # Сортировка списка по площади для корректного отображения изоконтуров на карте
+        self.isocontours.sort(key=lambda contour: contour.calculate_area(), reverse=True)
 
-
-    def interpolate_color(self, min_height, max_height, from_height, to_height):
+    def interpolate_color(self, min_level, max_height, from_height, to_height):
         """Интерполяция градиента для изоконтуров"""
         
         # Нормализуем высоты к интервалу [0, 1]
-        norm_from_height = (from_height - min_height) / (max_height - min_height)
-        norm_to_height = (to_height - min_height) / (max_height - min_height)
+        norm_from_height = (from_height - min_level) / (max_height - min_level)
+        if norm_from_height < 0:
+            norm_from_height = 0
         
         # Находим компоненты RGB цвета для синего, зеленого и красного
         blue = 1.0 - norm_from_height  # Синий уменьшается с ростом высоты

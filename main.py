@@ -49,8 +49,8 @@ surface.get_bounds()
 #surface.levels = [-32]
 
 #Генерируем уровни
-step = 2
-surface.define_contours_levels(0, step )
+step = 1
+surface.define_contours_levels(step)
 
 #Строим изолинии
 surface.build_contour_lines()
@@ -64,7 +64,7 @@ surface.smooth_contour_lines(10, 0.5)
 plot_triangulation(surface)
 
 #Создаём граф для изоконтуров
-graf = IsoConturer(surface.levels)
+graf = IsoConturer(surface.levels, points)
 #Добавляем туда границы сетки
 graf.add_bounds(surface.bounds)
 #Добавляем изолинии

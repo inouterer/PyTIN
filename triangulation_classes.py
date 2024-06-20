@@ -227,13 +227,53 @@ class Isocontour:
     def __init__(self, from_height, to_height):
         self.from_height = from_height
         self.to_height = to_height
-        self.points = []
-        rgb_color = []
+        self.points = []  # Инициализация как список
+        self.rgb_color = []
+
     def add_points(self, points):
         self.points.extend(points)
 
-    def get_contour_points (self):
+    def get_contour_points(self):
         return self.points
 
     def clear_contour_points(self):
-        self.points = ()
+        self.points = []  # Очистка как список
+
+    def calculate_area(self):
+        if len(self.points) < 3:  # Площадь не может быть вычислена, если менее 3 точек
+            return 0
+
+        area = 0
+        n = len(self.points)
+        for i in range(n):
+            x1, y1 = self.points[i].x, self.points[i].y
+            x2, y2 = self.points[(i + 1) % n].x, self.points[(i + 1) % n].y
+            area += x1 * y2 - x2 * y1
+        return abs(area) / 2
+    
+    def find_point_inside(self, allpoints):
+        """
+        Находит любую точку из набора allpoints, которая находится внутри изоконтура.
+        Возвращает z-координату первой найденной точки, находящейся внутри контура, или None.
+        """
+        def is_point_inside_polygon(x, y):
+            """
+            Проверяет, находится ли точка (x, y) внутри многоугольника.
+            Алгоритм: метод лучевого преобразования (Ray Casting method).
+            """
+            n = len(self.points)
+            inside = False
+
+            px, py = x, y
+            for i in range(n):
+                x1, y1 = self.points[i].x, self.points[i].y
+                x2, y2 = self.points[(i + 1) % n].x, self.points[(i + 1) % n].y
+                if ((y1 > py) != (y2 > py)) and (px < (x2 - x1) * (py - y1) / (y2 - y1) + x1):
+                    inside = not inside
+            return inside
+
+        for point in allpoints:
+            if is_point_inside_polygon(point.x, point.y):
+                return point.z
+
+        return self.points[0].z

@@ -1,3 +1,4 @@
+from traceback import print_list
 import numpy as np  # Импортируем numpy для генерации случайных цветов
 import matplotlib.pyplot as plt
 
@@ -24,7 +25,7 @@ def plot_triangulation(surface):
         plt.annotate(f'h{round(point.z,2)} n{i}', (point.x, point.y), textcoords="offset points", xytext=(0,10), ha='center')
         i+=1
 
-    # Визуализация изолиний
+    #Визуализация изолиний
 
     for contour_line in surface.contour_lines:
         # Генерация случайного цвета
@@ -50,7 +51,7 @@ def plot_triangulation(surface):
 def visualize_contours(graf_points, points, isolines, bounds, isocontours):
     """Отобразить изоконтуры IsoCоnturer в матплотлибе
     """
-
+    size = 0.5
     plt.figure(figsize=(10, 10))
 
     # Визуализация границ
@@ -61,6 +62,7 @@ def visualize_contours(graf_points, points, isolines, bounds, isocontours):
     import random
 
     # Визуализация изоконтуров с заливкой
+    print ("Визуализация изоконтуров")
     for isocontour in isocontours:
         contour_points = isocontour.get_contour_points()
         # Разделяем координаты x и y
@@ -69,29 +71,32 @@ def visualize_contours(graf_points, points, isolines, bounds, isocontours):
         # Добавляем первую точку в конец для замыкания линии
         x_values.append(contour_points[0].x)
         y_values.append(contour_points[0].y)
-
+        
         color = tuple(c / 255 for c in isocontour.rgb_color)  # Нормализуем значения цвета к диапазону [0, 1]
-        plt.fill(x_values, y_values, color=color)  # Заливка с случайным цветом
+        print (isocontour.from_height,"-", isocontour.to_height,":",isocontour.calculate_area(), "Color:",color, "RGBColor:",isocontour.rgb_color)
+        plt.fill(x_values, y_values, color=color)  # Заливка цветом
 
     # Визуализация изолиний и их точек
-    # for isoline in isolines:
-    #     x = [point.x for point in isoline]
-    #     y = [point.y for point in isoline]
-    #     plt.plot(x, y, 'r-')  # Красные линии
+    print ("Визуализация изолиний и их точек")
+    for isoline in isolines:
+        x = [point.x for point in isoline]
+        y = [point.y for point in isoline]
+        plt.plot(x, y, 'r-')  # Красные линии
 
-        # for point in points_list:
-        #     plt.plot(point.x, point.y, 'ro')  # Красные точки
+        for point in points:
+            plt.plot(point.x, point.y, 'ro', markersize=size)  # Красные точки
 
     # Добавление точек с отметками
+    print ("Добавление точек с отметками")
     i=0
     for point in points:
-        plt.scatter(point.x, point.y, color='red')  # Рисуем точку
+        plt.scatter(point.x, point.y, color='red', s=size)  # Рисуем точку
         plt.annotate(f'h{round(point.z,2)} n{i}', (point.x, point.y), textcoords="offset points", xytext=(0,10), ha='center')
         i+=1
     # Добавление точек с отметками
     i=0
     for point in graf_points:
-        plt.scatter(point.x, point.y, color='blue')  # Рисуем точку
+        plt.scatter(point.x, point.y, color='blue', s=size)  # Рисуем точку
         plt.annotate(f'h{round(point.z,2)} n{i}', (point.x, point.y), textcoords="offset points", xytext=(0,10), ha='center')
         i+=1
 
@@ -99,5 +104,5 @@ def visualize_contours(graf_points, points, isolines, bounds, isocontours):
     plt.ylabel('Y')
     plt.title('Visualization')
     plt.grid(True)
-    
+    print ("Показываем")
     plt.show()
