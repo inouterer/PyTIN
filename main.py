@@ -49,8 +49,8 @@ surface.get_bounds()
 #surface.levels = [-32]
 
 #Генерируем уровни
-step = 1
-surface.define_contours_levels(step)
+step = 2
+surface.define_contours_levels(0,step)
 
 #Строим изолинии
 surface.build_contour_lines()

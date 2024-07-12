@@ -50,7 +50,7 @@ surface.get_bounds()
 
 #Генерируем уровни
 step = 10
-surface.define_contours_levels(-100, step)
+surface.define_contours_levels(-95, step)
 
 #Строим изолинии
 surface.build_contour_lines()

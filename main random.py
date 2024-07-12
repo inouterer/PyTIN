@@ -47,7 +47,7 @@ surface.triangulate(points)
 surface.get_bounds()
 
 #Генерируем уровни
-step = 2
+step = 1
 surface.define_contours_levels(10, step)
 
 #Строим изолинии

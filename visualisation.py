@@ -77,14 +77,14 @@ def visualize_contours(graf_points, points, isolines, bounds, isocontours):
         plt.fill(x_values, y_values, color=color)  # Заливка цветом
 
     # Визуализация изолиний и их точек
-    print ("Визуализация изолиний и их точек")
-    for isoline in isolines:
-        x = [point.x for point in isoline]
-        y = [point.y for point in isoline]
-        plt.plot(x, y, 'r-')  # Красные линии
+    # print ("Визуализация изолиний и их точек")
+    # for isoline in isolines:
+    #     x = [point.x for point in isoline]
+    #     y = [point.y for point in isoline]
+    #     plt.plot(x, y, 'r-')  # Красные линии
 
-        for point in points:
-            plt.plot(point.x, point.y, 'ro', markersize=size)  # Красные точки
+    #     for point in points:
+    #         plt.plot(point.x, point.y, 'ro', markersize=size)  # Красные точки
 
     # Добавление точек с отметками
     print ("Добавление точек с отметками")
