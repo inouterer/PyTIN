@@ -39,7 +39,7 @@ surface.get_bounds()
 surface.custom_bounds = real_bounds_points
 
 #Добавим пользовательские внешние границы в набор точек
-surface.insert_custom_bounds()
+surface.insert_custom_bound_points()
 
 #Снова триангулируем
 surface.triangulate(points)

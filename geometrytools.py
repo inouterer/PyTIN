@@ -255,7 +255,6 @@ class GeometryTools:
                 tau*=tau_corr
             return tau
 
-
         def cubic_hermite(height, p0, p1, p2, p3, num_points, tau):
             """Создать точки к среднему сегменту в квадруплексе"""
             points = []
@@ -295,3 +294,50 @@ class GeometryTools:
                 spline_points.extend(cubic_hermite(height, P[i], P[i+1], P[i+2], P[i+3], num_points, tau_correction(P[i], P[i+1], P[i+2], P[i+3], tau)))
 
         return spline_points
+
+    @staticmethod
+    def do_lines_intersect(p1, q1, p2, q2):
+        """
+        Проверяет, пересекаются ли два отрезка [p1, q1] и [p2, q2].
+
+        :param p1: Начальная точка первого отрезка.
+        :param q1: Конечная точка первого отрезка.
+        :param p2: Начальная точка второго отрезка.
+        :param q2: Конечная точка второго отрезка.
+        :return: True, если отрезки пересекаются, иначе False.
+        """
+        def orientation(p, q, r):
+            val = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y)
+            if val == 0:
+                return 0  # Коллинеарные
+            return 1 if val > 0 else 2  # Clockwise или Counterclockwise
+
+        def on_segment(p, q, r):
+            # Проверяет, лежит ли точка q на отрезке pr
+            return min(p.x, r.x) <= q.x <= max(p.x, r.x) and min(p.y, r.y) <= q.y <= max(p.y, r.y)
+
+        o1 = orientation(p1, q1, p2)
+        o2 = orientation(p1, q1, q2)
+        o3 = orientation(p2, q2, p1)
+        o4 = orientation(p2, q2, q1)
+
+
+
+        # Специальные случаи: проверяем коллинеарность и принадлежность точки отрезку
+        if o1 == 0 and on_segment(p1, p2, q1):
+            return False  # Смежные, но не пересекающиеся
+
+        if o2 == 0 and on_segment(p1, q2, q1):
+            return False  # Смежные, но не пересекающиеся
+
+        if o3 == 0 and on_segment(p2, p1, q2):
+            return False  # Смежные, но не пересекающиеся
+
+        if o4 == 0 and on_segment(p2, q1, q2):
+            return False  # Смежные, но не пересекающиеся
+        
+        # Основной случай: если пары точек имеют разные ориентации, то они пересекаются
+        if o1 != o2 and o3 != o4:
+            return True
+
+        return False  # Отрезки не пересекаются и не смежные

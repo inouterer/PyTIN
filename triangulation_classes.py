@@ -5,7 +5,7 @@ class Point:
     Точки с отметкой высоты
     """
     
-    def __init__(self, x, y, z):
+    def __init__(self, x=0, y=0, z=0):
         self.x = x
         self.y = y
         self.z = z
@@ -20,6 +20,29 @@ class Point:
         tolerance = 0.001
         return  (abs(self.x - other.x) <= tolerance and
                  abs(self.y - other.y) <= tolerance)
+    def __hash__(self):
+        # Для хеширования используем кортеж из координат x и y
+        return hash((self.x, self.y))
+    
+    def is_inside_polygon(self, polygon):
+        """
+        Проверяет, находится ли точка внутри полигона.
+
+        :param polygon: Список вершин полигона, представленных в виде объектов Point.
+        :return: True, если точка внутри полигона, и False в противном случае.
+        """
+        n = len(polygon)
+        intersections = 0
+
+        for i in range(n):
+            p1 = polygon[i]
+            p2 = polygon[(i + 1) % n]
+            if ((p1.y <= self.y and p2.y > self.y) or
+                (p1.y > self.y and p2.y <= self.y)) and \
+                    self.x < (p2.x - p1.x) * (self.y - p1.y) / (p2.y - p1.y) + p1.x:
+                intersections += 1
+
+        return intersections % 2 == 1
 
 
 class Edge:
@@ -35,6 +58,9 @@ class Edge:
 
     def calculate_length(self):
         return ((self.end.x - self.start.x) ** 2 + (self.end.y - self.start.y) ** 2) ** 0.5
+    def __hash__(self):
+        # Для хеширования используем кортеж из координат начала и конца ребра
+        return hash((self.start, self.end))
 
 
 class IsoLine:
@@ -119,7 +145,7 @@ class Triangle:
         
         x = (p1.x + p2.x + p3.x) / 3
         y = (p1.y + p2.y + p3.y) / 3
-        return [x, y]
+        return Point(x, y, 0)
 
 
 
@@ -220,6 +246,16 @@ class Triangle:
             edge.calculate_length()
             lenghts.append(edge.calculate_length())
         return max (lenghts)
+    
+    # Выдаёт точки треугольника обрабатывая ребра
+    def extract_points(self):
+        points = []
+        for edge in self.edges:
+            if edge.start not in points:
+                points.append(edge.start)
+            if edge.end not in points:
+                points.append(edge.end)
+        return points
 
 
 class Isocontour:

@@ -114,6 +114,22 @@ class Triangulation:
         self.triangles = cur_triangles
         self.get_bounds() #Сразу вставим границы текущей триангуляции
     
+    def is_triangle_boundary(self, triangle):
+        """
+        Проверяет, является ли треугольник граничным в триангуляции.
+
+        :param triangle: Треугольник, объект класса Triangle.
+        :return: True, если треугольник граничный, False в противном случае.
+        """
+        edges_count = 0
+        for other_triangle in self.triangles:
+            if other_triangle != triangle:
+                common_edges = set(triangle.edges) & set(other_triangle.edges)
+                edges_count += len(common_edges)
+
+        # Треугольник считается граничным, если у него меньше трех общих ребер с другими треугольниками
+        return edges_count < 3
+    
     def get_bounds(self):
         """Граница треугольников помещается в атрибут bounds"""
         edges = []
@@ -165,16 +181,17 @@ class Triangulation:
         ]
 
     
-    def filter_triangles(self, max_lenght, min_angle):
+    def filter_triangles(self, min_angle):
         """Удалить из триангуляции треугольники не соответствующие критериям
-        
         по минимальному углу и длине ребра"""
-
         if self.triangles == []:
             return []
         filtered_triangles = []
         for triangle in self.triangles:
-            if (triangle.max_edge() < max_lenght) and (triangle.min_angle() > min_angle):
+            if (triangle.min_angle() < min_angle) and self.is_triangle_boundary(triangle):
+                print (triangle.min_angle())
+                continue
+            else:
                 filtered_triangles.append(triangle)
         self.triangles = filtered_triangles
 
@@ -246,6 +263,16 @@ class Triangulation:
         self.levels = corrected_levels
         print (self.levels)
         return
+    def correct_levels(self):
+        eps = 0.01  # Малая величина для коррекции высоты изолиний, сотая доля шага
+        corrected_levels = []
+        for cur_level in self.levels:
+            # Проверяем и корректируем высоту, чтобы избежать точного совпадения с высотами точек
+            while any(point.z == cur_level for point in self.points):
+                    cur_level -= eps
+            corrected_levels.append(cur_level)
+        self.levels = corrected_levels
+        print (self.levels)
 
 
     def build_contour_lines (self):
@@ -308,7 +335,7 @@ class Triangulation:
             smooth_contour_lines.append(smooth_contour_line)
         self.sm_contour_lines = smooth_contour_lines
 
-    def insert_custom_bounds (self):
+    def insert_custom_bound_points (self):
         """Добавить свой внешний полигон.
         Вершинам присвоятся значения соседних отметок, после чего они войдут в исходный набор """
         def distance_between_points(p1, p2):
@@ -327,11 +354,14 @@ class Triangulation:
         return
     
     def remove_outer_triangles(self):
+        """
+        Удаляет из сети треугольники за границами пользователя по центроиду
+        """
         def is_inside_polygon(point, polygon):
             """
             Проверяет, находится ли точка внутри полигона.
 
-            :param point: Точка, представленная в виде списка из двух чисел [x, y].
+            :param point: Точка, представленная объектом класса Point.
             :param polygon: Список вершин полигона, представленных в виде объектов Point.
             :return: True, если точка внутри полигона, и False в противном случае.
             """
@@ -341,16 +371,74 @@ class Triangulation:
             for i in range(n):
                 p1 = polygon[i]
                 p2 = polygon[(i + 1) % n]
-                if ((p1.y <= point[1] and p2.y > point[1]) or
-                    (p1.y > point[1] and p2.y <= point[1])) and \
-                        point[0] < (p2.x - p1.x) * (point[1] - p1.y) / (p2.y - p1.y) + p1.x:
+                if ((p1.y <= point.y and p2.y > point.y) or
+                    (p1.y > point.y and p2.y <= point.y)) and \
+                        point.x < (p2.x - p1.x) * (point.y - p1.y) / (p2.y - p1.y) + p1.x:
                     intersections += 1
 
             return intersections % 2 == 1
 
         inner_triangles = []
         for triangle in self.triangles:
-            if is_inside_polygon(triangle.triangle_centroid(), self.custom_bounds):
+            centroid = triangle.triangle_centroid()
+            if is_inside_polygon(centroid, self.custom_bounds):
                 inner_triangles.append(triangle)
         self.triangles = inner_triangles
+
+    # def remove_outer_triangles(self):
+    #     def is_inside_polygon(point, polygon):
+    #         """
+    #         Проверяет, находится ли точка внутри полигона.
+
+    #         :param point: Точка, представленная объектом класса Point.
+    #         :param polygon: Список вершин полигона, представленных в виде объектов Point.
+    #         :return: True, если точка внутри полигона, и False в противном случае.
+    #         """
+    #         n = len(polygon)
+    #         intersections = 0
+
+    #         for i in range(n):
+    #             p1 = polygon[i]
+    #             p2 = polygon[(i + 1) % n]
+    #             if ((p1.y <= point.y and p2.y > point.y) or
+    #                 (p1.y > point.y and p2.y <= point.y)) and \
+    #                     point.x < (p2.x - p1.x) * (point.y - p1.y) / (p2.y - p1.y) + p1.x:
+    #                 intersections += 1
+
+    #         return intersections % 2 == 1
+    #     inner_triangles = []  # Список для хранения внутренних треугольников
+
+    #     for triangle in self.triangles:  # Проходим по каждому треугольнику
+    #         vertices = triangle.extract_points()  # Получаем вершины треугольника
+    #         all_inside = all(vertex.is_inside_polygon(self.custom_bounds) for vertex in vertices)
+    #         # Проверяем, находятся ли все вершины треугольника внутри пользовательского полигона
+
+    #         if all_inside:
+    #             # Если все вершины треугольника находятся внутри полигона, добавляем треугольник в список
+    #             inner_triangles.append(triangle)
+    #         else:
+    #             intersects = False  # Флаг для отслеживания пересечения треугольника с полигоном
+    #             for i in range(len(vertices)):  # Проходим по каждой вершине треугольника
+    #                 # Берем текущую и следующую вершины треугольника
+    #                 p1 = vertices[i]
+    #                 p2 = vertices[(i + 1) % len(vertices)]
+
+    #                 for j in range(len(self.custom_bounds)):  # Проходим по каждой вершине полигона
+    #                     # Берем текущую и следующую вершины полигона
+    #                     q1 = self.custom_bounds[j]
+    #                     q2 = self.custom_bounds[(j + 1) % len(self.custom_bounds)]
+
+    #                     if GeometryTools.do_lines_intersect(p1, p2, q1, q2):
+    #                         # Проверяем, пересекается ли текущее ребро треугольника с любым ребром полигона
+    #                         intersects = True
+    #                         break  # Если пересечение найдено, выходим из внутреннего цикла
+    #                 if intersects:
+    #                     break  # Если пересечение найдено, выходим из внешнего цикла
+    #             if intersects or is_inside_polygon(triangle.triangle_centroid(), self.custom_bounds):
+    #                 # Если треугольник пересекается с полигоном, добавляем его в список
+    #                 inner_triangles.append(triangle)
+
+    #     self.triangles = inner_triangles  # Обновляем список треугольников
+
+
 
