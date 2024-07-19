@@ -63,16 +63,36 @@ class IsoConturer:
                 ordered_points.append(a)
         return ordered_points[:-1] #Не добавляем последнюю точку, чтобы не задваивалась
 
-    def find_isoline_for_point  (self, point):
+    def find_isoline_for_point2 (self, point):
         """Ищем изолинию, в которой такая точка"""
         for isoline in self.isolines:
             if (isoline[0] == point) or (isoline[-1] == point):
+                iso = isoline
+                #self.isolines.remove(isoline)
+                #print (len(iso))
+                return iso
+    def find_isoline_for_point (self, point):
+        """Ищем изолинию, в которой такая точка"""
+        for isoline in self.isolines:
+            if isoline[0] == point:
                 return isoline
-
+            if isoline[-1] == point:
+                return isoline[::-1]
+    
+    def find_isoline_for_point2  (self, point):
+        """Ищем изолинию, в которой такая точка"""
+        x = 0
+        while x<len(self.isolines):
+            
+            if (self.isolines[x][0] == point) or (self.isolines[x][-1] == point):
+                #isoline = self.isolines.pop(x)
+                #print (len(isoline), x)
+                return isoline
+            x+=1
 
     def build_isocontours (self, step):
         """Непосредственно строим изоконтуры"""
-
+        
         def find_section_index (point):
             """Поиск номера сегмента на контуре графа"""
             for i, section in enumerate(self.sections):
@@ -81,12 +101,11 @@ class IsoConturer:
             return False
 
 
-        def trace_isocontour():
-            """Построение изоконтуров из ребер графа и изолиний с замыканием"""
+        def trace_isocontour2():
+            """Построение изоконтуров из ребер графа и изолиний с замыканием по методу похожему на Скворцова"""
             visited_sections = []
-            manager = GeometryTools()
-            s = 0
-
+            gtools = GeometryTools()
+            s = 0 #Номер секции
             while len(visited_sections) < len(self.sections):
                 #Проходим по часовой стрелке по рёбрам (секциям) графа и находим непосещенную.
                 contour_noodle = []
@@ -102,19 +121,17 @@ class IsoConturer:
                 #Непосещенные секции последовательно собираем.
                 while len(visited_sections) < len(self.sections):
                     if section not in visited_sections:
-                        visited_sections.append(section)
-                        contour_noodle.append(section)
+                        visited_sections.append(section) #Отмечаем посещенную
+                        contour_noodle.append(section) #Добавляем секцию в лапшу
                         s+=1
-                    #Если вторая точка секции принадлежит входу изолинии - сцепляем её.
+                    #Если вторая точка секции принадлежит входу изолинии - сцепляем изолинию с секцией.
                     if section[-1].marked: #Маркированные точки графа относятся  к изолиниям, в отличии от точек контура!!!
                         finded_isoline = self.find_isoline_for_point (section[-1])
                         contour_noodle.append(finded_isoline)
 
                     #Собираем куски (и только секции и секции с изолиниями) вместе
-                    isocontour, last_noodles = manager.assemble_polygon_from_noodles(contour_noodle)
-                
-                    if section[-1].marked:
-                        s = find_section_index (isocontour [-1])
+                    isocontour, last_noodles = gtools.assemble_polygon_from_noodles(contour_noodle)
+                    s = find_section_index (isocontour [-1])
 
                     contour_noodle= []
                     contour_noodle.append(isocontour)
@@ -128,6 +145,42 @@ class IsoConturer:
                     section = self.sections[s]
             return
         
+        def trace_isocontour():
+            """Построение изоконтуров из ребер графа и изолиний с замыканием по методу похожему на Скворцова"""
+            visited_sections = []
+            gtools = GeometryTools()
+            s = 0 #Номер секции
+            while len(visited_sections) < len(self.sections):
+                #Проходим по часовой стрелке по рёбрам (секциям) графа и находим непосещенную.
+                contour_noodle = []
+                #Если вышли за индекс - начинаем снова
+                if s >= len (self.sections)-1:
+                        s = 0
+                section = self.sections[s]
+                #Если секция в посещенных - идём дальше
+                if section in visited_sections:
+                    s+=1
+                    continue
+                #Непосещенные секции последовательно собираем.
+                while len(visited_sections) < len(self.sections):
+                    if section not in visited_sections:
+                        visited_sections.append(section) #Отмечаем посещенную
+                        contour_noodle.append(section) #Добавляем секцию в лапшу
+                        s+=1
+                    #Если вторая точка секции принадлежит входу изолинии - сцепляем изолинию с секцией.
+                    if section[-1].marked: #Маркированные точки графа относятся  к изолиниям, в отличии от точек контура!!!
+                        contour_noodle.append(self.find_isoline_for_point (section[-1]))
+                        s = find_section_index (contour_noodle[-1][-1])
+                    #Если лапша замкнулась
+                    if contour_noodle[0][0] == contour_noodle[-1][-1]:
+                        iso = Isocontour()  # Создаем новый объект Isocontour
+                        iso.points, last_noodles = gtools.assemble_polygon_from_noodles(contour_noodle)
+                        self.isocontours.append(iso)  # Добавляем объект Isocontour в список isocotours
+                        break
+                    section = self.sections[s]
+            return
+        
+        
         def define_isocontour_levels(self, iso):
             # Определим высоту изоконтура по отметке первой вершины и по отметке точки из набора данных внутри него:
             # Наёдём высоту первой точки, если она маркирована, тоесть относится к изолинии
@@ -137,7 +190,7 @@ class IsoConturer:
                     fpoint_z = ipoint.z
             if not fpoint_z: #Или первую попавшуюся, значит это замкнутая изолиния
                 fpoint_z = iso.points[0].z
-                print(f'Яйцо {fpoint_z}')
+                #rint(f'Яйцо {fpoint_z}')
             # Если точка выше первого узла изолинии то нижняя высота будет равна высоте точки, а верхння + шаг
             if fpoint_z < iso.find_point_inside(self.allpoints):
                 iso.from_height, iso.to_height = fpoint_z, fpoint_z + step
@@ -145,8 +198,9 @@ class IsoConturer:
                 # Иначе, это верхняя высота, а нижняя минус шаг
                 iso.from_height, iso.to_height = fpoint_z - step, fpoint_z
             if fpoint_z == iso.find_point_inside(self.allpoints):
-                print (f'define_isocontour_levels_Panic!!!!!!!!{iso.points[0].z} {iso.points[0].marked} {iso.find_point_inside(self.allpoints)}')
-
+                #print (f'define_isocontour_levels_Panic!!!!!!!!{iso.points[0].z} {iso.points[0].marked} {iso.find_point_inside(self.allpoints)}')
+                return
+        
         #Здесь мы создаём точки графа, проходя по контуру объекта на его узлах и
         #на входах и выходах изолиний в порядке по часовой
         edge_points = []
@@ -155,20 +209,17 @@ class IsoConturer:
             edge_points.append(isoline[-1])
         self.points = self.find_and_sort_points_on_polygon(edge_points)
  
-
-
         #Добавляем замкнутые изолинии - они уже готовые изоконтуры
         for isoline in self.isolines:
             if isoline[0] == isoline[-1]:
-                iso = Isocontour(0, 0)  # Создаем новый объект Isocontour
-                iso.add_points(isoline)  # Добавляем точки в объект Isocontour
-                self.isocontours.append(iso)
-
+                isoсontour = Isocontour()  # Создаем новый объект Isocontour
+                isoсontour.add_points(isoline)  # Добавляем точки в объект Isocontour
+                self.isocontours.append(isoсontour)
 
         #Сделаем ребра графа sections. 
         if len(self.points) < 2:
             return
-                # Создание отрезков между последовательными точками
+        # Создание отрезков между последовательными точками
         self.sections = [[self.points[i], self.points[i + 1]] for i in range(len(self.points) - 1)]
         # Добавление отрезка между последней и первой точкой, чтобы закрыть контур
         self.sections.append([self.points[-1], self.points[0]])

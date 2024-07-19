@@ -112,7 +112,7 @@ class Triangulation:
                 break
             t -= 1
         self.triangles = cur_triangles
-        self.get_bounds() #Сразу вставим границы текущей триангуляции
+        #self.get_bounds() #Сразу вставим границы текущей триангуляции
     
     def is_triangle_boundary(self, triangle):
         """
@@ -136,8 +136,10 @@ class Triangulation:
         for triangle in self.triangles:
             for edge in triangle.edges:
                 edges.append(edge)
+        copy_edges = edges.copy()
+        print(len(copy_edges))
         #Удаляем кратные ребра
-        contour_edges = self.delete_multiples_edges(edges)
+        contour_edges = self.delete_multiples_edges(copy_edges)
         #Преобразуем список непарных ребер в список пар точек
         point_pairs = [[edge.start, edge.end] for edge in contour_edges]
         #Обратимся к менеджеру полигонов, дав ему пока пустое значение
@@ -149,8 +151,25 @@ class Triangulation:
         self.bounds = pmanager.polygon #Получаем точки границы триангуляции
 
     
-    #Функция, удаляющая кратные ребра
-    def delete_multiples_edges (self, edges):
+    #Функция, удаляющая кратные ребра (птимизированная функция)
+    def delete_multiples_edges (self, copy_edges):
+        """Удаляем кратные ребра."""
+        e = len(copy_edges) #Создаём копию списка
+        #Итерируем с конца списка
+        while e>0:
+            e-=1
+            g = e 
+            while g>0:
+                g-=1
+                if copy_edges[e] == copy_edges[g]:
+                    del copy_edges[e]
+                    del copy_edges[g]
+                    e-=1 # После удаления уменьшаем индекс два раза на 1 (здесь и в начале цикла)
+                    break    
+        return copy_edges
+    
+    #Функция, удаляющая кратные ребра (неоптимизированная функция - не удаляет данные)
+    def delete_multiples_edges4(self, edges):
         """Удаляем кратные ребра."""
         contour_edges = []
         for edge in edges:
@@ -253,15 +272,7 @@ class Triangulation:
         if height_values[-1] < max_height:
             height_values.append(max_height)
         
-        eps = step * 0.01  # Малая величина для коррекции высоты изолиний, сотая доля шага
-        corrected_levels = []
-        for cur_level in height_values:
-            # Проверяем и корректируем высоту, чтобы избежать точного совпадения с высотами точек
-            while any(point.z == cur_level for point in self.points):
-                    cur_level -= eps
-            corrected_levels.append(cur_level)
-        self.levels = corrected_levels
-        print (self.levels)
+        self.levels = height_values
         return
     def correct_levels(self):
         eps = 0.01  # Малая величина для коррекции высоты изолиний, сотая доля шага
@@ -324,7 +335,7 @@ class Triangulation:
         self.contour_lines = cull_contour_lines
         return
     
-    def smooth_contour_lines (self, nPoints, alpha):
+    def smooth_contour_lines (self, nPoints=10, alpha=0.5):
         """Сгладить полилинию"""
         smooth_contour_lines = []
         gutils = GeometryTools()

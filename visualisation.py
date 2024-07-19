@@ -77,7 +77,7 @@ def visualize_contours(graf_points, points, isolines, custom_bounds, isocontours
         y_values.append(contour_points[0].y)
         
         color = tuple(c / 255 for c in isocontour.rgb_color)  # Нормализуем значения цвета к диапазону [0, 1]
-        print (isocontour.from_height,"-", isocontour.to_height,":",isocontour.calculate_area(), "Color:",color, "RGBColor:",isocontour.rgb_color)
+        #print (isocontour.from_height,"-", isocontour.to_height,":",isocontour.calculate_area(), "Color:",color, "RGBColor:",isocontour.rgb_color)
         plt.fill(x_values, y_values, color=color)  # Заливка цветом
 
     # Визуализация изолиний и их точек

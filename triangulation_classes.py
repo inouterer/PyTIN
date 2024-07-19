@@ -260,10 +260,10 @@ class Triangle:
 
 class Isocontour:
     """Изоконтуры это замкнутые фигуры между изолиниями"""
-    def __init__(self, from_height, to_height):
-        self.from_height = from_height
-        self.to_height = to_height
-        self.points = []  # Инициализация как список
+    def __init__(self, points=None):
+        self.from_height = 0
+        self.to_height = 0
+        self.points = points if points is not None else []  # Инициализация как пустой список, если points не передан
         self.rgb_color = []
 
     def add_points(self, points):
@@ -313,3 +313,176 @@ class Isocontour:
                 return point.z
 
         return self.points[0].z
+    
+class Levels:
+    """
+    Класс для управления уровнями и их упорядочивания.
+
+    Атрибуты:
+    levels (list): Список уровней, отсортированных по возрастанию
+    corrected_levels: Список скорректированных для построения изолиний уровней
+    intervals (list): Список список интервалов.
+
+    Методы:
+    add_level(value): Добавляет новый уровень и сортирует список уровней.
+    remove_level(value): Удаляет указанный уровень, если он существует.
+    get_level_index(value): Возвращает индекс указанного уровня.
+    get_current_level(value): Возвращает значение текущего уровня.
+    get_previous_level(value): Возвращает значение предыдущего уровня.
+    get_next_level(value): Возвращает значение следующего уровня.
+    """
+
+    def __init__(self, levels=[]):
+        """
+        Инициализирует объект Levels с заданным списком уровней.
+
+        Аргументы:
+        levels (list): Список уровней.
+        """
+        self.levels = sorted(levels)
+        self.corrected_levels = []
+        self.intervals = []
+
+    def add_level(self, value):
+        """
+        Добавляет новый уровень и сортирует список уровней.
+
+        Аргументы:
+        value (float): Значение нового уровня.
+        """
+        self.levels.append(value)
+        self.levels = sorted(self.levels)
+
+    def remove_level(self, value):
+        """
+        Удаляет указанный уровень, если он существует.
+
+        Аргументы:
+        value (float): Значение уровня, который необходимо удалить.
+        """
+        try:
+            self.levels.remove(value)
+        except ValueError:
+            pass
+
+    def get_level_index(self, value):
+        """
+        Возвращает индекс указанного уровня.
+
+        Аргументы:
+        value (float): Значение уровня.
+
+        Возвращает:
+        int: Индекс уровня или None, если уровень не найден.
+        """
+        try:
+            return self.levels.index(value)
+        except ValueError:
+            return None
+
+    def get_current_level(self, value):
+        """
+        Возвращает значение текущего уровня.
+
+        Аргументы:
+        value (float): Значение уровня.
+
+        Возвращает:
+        float: Значение текущего уровня или None, если уровень не найден.
+        """
+        index = self.get_level_index(value)
+        if index is None:
+            return None
+        return self.levels[index]
+
+    def get_previous_level(self, value):
+        """
+        Возвращает значение предыдущего уровня.
+
+        Аргументы:
+        value (float): Значение текущего уровня.
+
+        Возвращает:
+        float: Значение предыдущего уровня или None, если предыдущего уровня нет или уровень не найден.
+        """
+        index = self.get_level_index(value)
+        if index is None or index == 0:
+            return None  # Нет предыдущего уровня
+        return self.levels[index - 1]
+
+    def get_next_level(self, value):
+        """
+        Возвращает значение следующего уровня.
+
+        Аргументы:
+        value (float): Значение текущего уровня.
+
+        Возвращает:
+        float: Значение следующего уровня или None, если следующего уровня нет или уровень не найден.
+        """
+        index = self.get_level_index(value)
+        if index is None or index == len(self.levels) - 1:
+            return None  # Нет следующего уровня
+        return self.levels[index + 1]
+    
+    def define_contours_levels(self, bottom, top, step=1):
+        """Определяет список отметок по заданному шагу."""
+        # Создать список интервалов, начиная с bottom
+        height_values = []
+        current_height = bottom
+        
+        while current_height <= top:
+            height_values.append(current_height)
+            current_height += step
+        print(height_values)       
+        
+        # Отфильтровать интервалы в пределах от bottom до top
+        height_values = [height for height in height_values if bottom <= height <= top]
+        print(height_values)
+        # Если минимальная высота не входит в интервалы, добавляем её в начало
+        if height_values[0] > bottom:
+            height_values.insert(0, bottom)
+        
+        # Если максимальная высота не входит в интервалы, добавляем её в конец
+        if height_values[-1] < top:
+            height_values.append(top)
+        self.levels = height_values
+        return
+
+    def correct_levels(self, points):
+        eps = 0.01  # Малая величина для коррекции высоты изолиний, сотая доля шага
+        corrected_levels = []
+        for cur_level in self.levels:
+            # Проверяем и корректируем высоту, чтобы избежать точного совпадения с высотами точек
+            while any(point.z == cur_level for point in points):
+                if cur_level <= 0:
+                    cur_level += eps
+                else:
+                    cur_level -= eps
+            corrected_levels.append(cur_level)
+        self.corrected_levels = corrected_levels
+    
+    def make_intervals(self):
+        """Создает список интервалов между уровнями."""
+        self.intervals = []
+        for i in range(len(self.levels) - 1):
+            interval = (self.levels[i], self.levels[i + 1], self.interpolate_color(self.levels[i]))
+            self.intervals.append(interval)
+        print (self.intervals)
+
+    
+    def interpolate_color(self, from_height):
+        """Интерполяция градиента для изоконтуров"""
+        # Нормализуем высоты к интервалу [0, 1]
+        norm_from_height = (from_height - self.levels[0]) / (self.levels[-1] - self.levels[0])
+        if norm_from_height < 0:
+            norm_from_height = 0
+        # Находим компоненты RGB цвета для синего, зеленого и красного
+        blue = 1.0 - norm_from_height  # Синий уменьшается с ростом высоты
+        green = 1.0 - abs(norm_from_height - 0.5) * 2  # Зеленый максимален посередине, минимален на краях
+        red = norm_from_height  # Красный увеличивается с ростом высоты
+        # Конвертируем значения компонентов в диапазон [0, 255]
+        blue = int(blue * 255)
+        green = int(green * 255)
+        red = int(red * 255)       
+        return (red, green, blue)
