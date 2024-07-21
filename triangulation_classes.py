@@ -1,4 +1,6 @@
 import math
+import pandas as pd
+from geometrytools import GeometryTools
 
 class Point:
     """
@@ -43,6 +45,19 @@ class Point:
                 intersections += 1
 
         return intersections % 2 == 1
+    @staticmethod
+    def import_xyz_csv(path, offset=0):
+        """
+        Получат точки из CSV.
+
+        """
+        df = pd.read_csv(path, header=None, delimiter=';')# Чтение CSV файла с указанием разделителя ';'
+        points = [] # Создание пустого списка для хранения объектов Point
+        # Проход по каждой строке значений z
+        for index, row in df.iloc[0:].iterrows():
+            points.append(Point(row[offset+0], row[offset+1], row[offset+2]))
+        return points
+   
 
 
 class Edge:
@@ -256,15 +271,99 @@ class Triangle:
             if edge.end not in points:
                 points.append(edge.end)
         return points
+    
+    def get_point_by_line(self, p1, p2):
+        """
+        Возвращает точку в центре отрезка, образованного точками пересечения с ребрами треугольника.
+
+        :param p1: Начальная точка отрезка, объект Point.
+        :param p2: Конечная точка отрезка, объект Point.
+        :return: Точка xyz - центр отрезка с отметкой, объект Point.
+        """
+        intersections = []  # Список для хранения точек пересечения с ребрами треугольника
+
+        # Проверяем пересечение линии с каждым ребром треугольника
+        for edge in self.edges:
+            intersection_point = GeometryTools.calculate_intersection(p1, p2, edge.start, edge.end)
+            if intersection_point:
+                intersections.append(intersection_point)
+
+        if len(intersections) < 2:
+            #raise ValueError("Line does not intersect triangle or intersects less than 2 edges")
+            return None
+
+        # Находим высоту точек пересечения на ребрах и создаем новые точки с этой высотой
+        z1 = intersections[0].z
+        z2 = intersections[1].z
+        x = (intersections[0].x + intersections[1].x) / 2
+        y = (intersections[0].y + intersections[1].y) / 2
+        z = (z1 + z2) / 2
+
+        return Point(x, y, z)
+
+    def calculate_triangle_area(self):
+        """
+        Вычисляет площадь треугольника по формуле Герона.
+
+        :return: Площадь треугольника.
+        """
+        a = self.edges[0].calculate_length()
+        b = self.edges[1].calculate_length()
+        c = self.edges[2].calculate_length()
+
+        s = (a + b + c) / 2
+        area = (s * (s - a) * (s - b) * (s - c)) ** 0.5
+
+        return area
+    
+    def is_inside_triangle(self, point, tolerance=0.001):
+        """
+        Проверяет, находится ли точка внутри треугольника с заданным допуском.
+
+        :param point: Точка, которую нужно проверить, объект Point.
+        :param tolerance: Допуск для проверки.
+        :return: True, если точка находится внутри треугольника, иначе False.
+        """
+        total_area = self.calculate_triangle_area()
+        point_area = sum(0.5 * abs((edge.start.x - point.x) * (edge.end.y - edge.start.y) - (edge.start.x - edge.end.x) * (point.y - edge.start.y)) for edge in self.edges)
+
+        return abs(total_area - point_area) < tolerance
+    
+    def interpolate_z(self, point, tolerance=0.001):
+        """
+        Интерполирует значение z для точки внутри треугольника с заданным допуском.
+
+        :param point: Точка, для которой нужно интерполировать значение z, объект Point.
+        :param tolerance: Допуск для определения, находится ли точка внутри треугольника.
+        :return: Интерполированное значение z для точки, если она находится внутри треугольника, иначе None.
+        """
+        if not self.is_inside_triangle(point, tolerance):
+            return None
+
+        total_area = self.calculate_triangle_area()
+        weights = []
+
+        for edge in self.edges:
+            p1 = edge.start
+            p2 = edge.end
+            p3 = point
+
+            area = 0.5 * abs((p1.x - p3.x) * (p2.y - p1.y) - (p1.x - p2.x) * (p3.y - p1.y))
+            weight = area / total_area
+            weights.append(weight)
+
+        interpolated_z = sum(weight * point.z for weight, point in zip(weights, self.extract_points()))
+        return interpolated_z
 
 
 class Isocontour:
     """Изоконтуры это замкнутые фигуры между изолиниями"""
     def __init__(self, points=None):
+        self.level_index = 0
         self.from_height = 0
         self.to_height = 0
         self.points = points if points is not None else []  # Инициализация как пустой список, если points не передан
-        self.rgb_color = []
+        self.rgb_color = ()
 
     def add_points(self, points):
         self.points.extend(points)
@@ -314,7 +413,32 @@ class Isocontour:
 
         return self.points[0].z
     
-class Levels:
+class HeightLevel:
+    """
+    Класс Level представляет уровень с высотой "от" и "до" и цветом RGB.
+
+    Атрибуты:
+    - height_from: высота начала диапазона
+    - height_to: высота конца диапазона
+    - color_rgb: кортеж с тремя значениями RGB в 16-ричной форме
+    """
+
+    def __init__(self, level_index, height_from, height_to, color_rgb):
+        """
+        Инициализирует объект Level с заданными высотами и цветом RGB.
+        """
+        self.level_index = level_index
+        self.height_from = height_from
+        self.height_to = height_to
+        self.color_rgb = color_rgb
+
+    def __str__(self):
+        """
+        Возвращает строковое представление объекта Level.
+        """
+        return f"Level:{self.level_index} H from: {self.height_from}, H to: {self.height_to}, Color RGB: {self.color_rgb}"
+
+class HeightLeveler:
     """
     Класс для управления уровнями и их упорядочивания.
 
@@ -324,12 +448,12 @@ class Levels:
     intervals (list): Список список интервалов.
 
     Методы:
-    add_level(value): Добавляет новый уровень и сортирует список уровней.
-    remove_level(value): Удаляет указанный уровень, если он существует.
+
+    read_cmp_file
+    get_level_index_by_heigh_from
+    get_level_index_by_heigh_to
     get_level_index(value): Возвращает индекс указанного уровня.
-    get_current_level(value): Возвращает значение текущего уровня.
-    get_previous_level(value): Возвращает значение предыдущего уровня.
-    get_next_level(value): Возвращает значение следующего уровня.
+
     """
 
     def __init__(self, levels=[]):
@@ -339,35 +463,43 @@ class Levels:
         Аргументы:
         levels (list): Список уровней.
         """
-        self.levels = sorted(levels)
+        self.levels = levels[:] if levels is not None else [] #Этот тернарный оператор сделает копию списка levels или если не указано создаст пустой список
         self.corrected_levels = []
         self.intervals = []
-
-    def add_level(self, value):
+    
+    def __str__(self):
         """
-        Добавляет новый уровень и сортирует список уровней.
-
-        Аргументы:
-        value (float): Значение нового уровня.
+        Возвращает строковое представление объекта Level.
         """
-        self.levels.append(value)
-        self.levels = sorted(self.levels)
-
-    def remove_level(self, value):
+        return '\n'.join([str(level) for level in self.levels])
+    
+    @staticmethod
+    def read_cmp_file(file_path):
         """
-        Удаляет указанный уровень, если он существует.
+        Статический метод для чтения файла *.cmp и создания объектов Level на основе данных из файла.
 
         Аргументы:
-        value (float): Значение уровня, который необходимо удалить.
-        """
-        try:
-            self.levels.remove(value)
-        except ValueError:
-            pass
+        - file_path: путь к файлу *.cmp
 
-    def get_level_index(self, value):
+        Возвращает:
+        - Список объектов Level, созданных на основе данных из файла
         """
-        Возвращает индекс указанного уровня.
+        levels = []
+        with open(file_path, 'r') as file:
+            for index, line in enumerate(file):
+                data = line.strip().split(', ')
+                height_from = float(data[0])
+                height_to = float(data[1])
+                #color_rgb = tuple(int(x, 16) for x in data[2:])
+                color_rgb = [int(x, 16) for x in data[2:]]
+                level = HeightLevel(index, height_from, height_to, color_rgb)
+                levels.append(level)
+        return levels
+    
+    @staticmethod
+    def get_level_index_by_heigh_from(value, levels):
+        """
+        Возвращает индекс указанного уровня по высоте height_from.
 
         Аргументы:
         value (float): Значение уровня.
@@ -375,55 +507,31 @@ class Levels:
         Возвращает:
         int: Индекс уровня или None, если уровень не найден.
         """
-        try:
-            return self.levels.index(value)
-        except ValueError:
+        # Ищем индекс уровня с заданной нижней отметкой
+        index = next((index for index, level in enumerate(levels) if level.height_from == round(value, 1)), None)
+        if index is not None:
+            return index
+        else:
             return None
-
-    def get_current_level(self, value):
+        
+    @staticmethod
+    def get_level_index_by_heigh_to(value, levels):
         """
-        Возвращает значение текущего уровня.
+        Возвращает индекс указанного уровня по высоте height_from.
 
         Аргументы:
         value (float): Значение уровня.
 
         Возвращает:
-        float: Значение текущего уровня или None, если уровень не найден.
+        int: Индекс уровня или None, если уровень не найден.
         """
-        index = self.get_level_index(value)
-        if index is None:
+        # Ищем индекс уровня с заданной нижней отметкой
+        index = next((index for index, level in enumerate(levels) if level.height_to == round(value, 1)), None)
+        if index is not None:
+            return index
+        else:
             return None
-        return self.levels[index]
 
-    def get_previous_level(self, value):
-        """
-        Возвращает значение предыдущего уровня.
-
-        Аргументы:
-        value (float): Значение текущего уровня.
-
-        Возвращает:
-        float: Значение предыдущего уровня или None, если предыдущего уровня нет или уровень не найден.
-        """
-        index = self.get_level_index(value)
-        if index is None or index == 0:
-            return None  # Нет предыдущего уровня
-        return self.levels[index - 1]
-
-    def get_next_level(self, value):
-        """
-        Возвращает значение следующего уровня.
-
-        Аргументы:
-        value (float): Значение текущего уровня.
-
-        Возвращает:
-        float: Значение следующего уровня или None, если следующего уровня нет или уровень не найден.
-        """
-        index = self.get_level_index(value)
-        if index is None or index == len(self.levels) - 1:
-            return None  # Нет следующего уровня
-        return self.levels[index + 1]
     
     def define_contours_levels(self, bottom, top, step=1):
         """Определяет список отметок по заданному шагу."""
@@ -448,11 +556,24 @@ class Levels:
             height_values.append(top)
         self.levels = height_values
         return
+    
+    def get_correct_isolines_levels(self, points):
+        """
+        Список высот для построения изолиний с корректировкой.
 
-    def correct_levels(self, points):
+        Аргументы:
+        points: список точек триангуляции
+
+        Возвращает:
+        List: .
+        """
         eps = 0.01  # Малая величина для коррекции высоты изолиний, сотая доля шага
         corrected_levels = []
-        for cur_level in self.levels:
+        
+        levels = [level.height_from for level in self.levels] #Извлечь нижние высоты из уровней
+        levels.append(self.levels[-1].height_to) #Добавить верхнюю высоту верхнего уровня
+
+        for cur_level in levels:
             # Проверяем и корректируем высоту, чтобы избежать точного совпадения с высотами точек
             while any(point.z == cur_level for point in points):
                 if cur_level <= 0:
@@ -460,7 +581,7 @@ class Levels:
                 else:
                     cur_level -= eps
             corrected_levels.append(cur_level)
-        self.corrected_levels = corrected_levels
+        return corrected_levels
     
     def make_intervals(self):
         """Создает список интервалов между уровнями."""

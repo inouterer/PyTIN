@@ -1,5 +1,3 @@
-from triangulation_classes import Point
-
 class GeometryTools:
     """Класс для реализации преобразований линейной геометрии.
 
@@ -257,6 +255,8 @@ class GeometryTools:
 
         def cubic_hermite(height, p0, p1, p2, p3, num_points, tau):
             """Создать точки к среднему сегменту в квадруплексе"""
+            from triangulation_classes import Point
+            
             points = []
             
             for i in range(num_points):
@@ -284,12 +284,12 @@ class GeometryTools:
             return P
         if P[0] == P[-1]: #Для замкнутого контура
             del P[-1]
-            P = [P[-2]] + [P[-1]] + P + [P[0]]
+            P = [P[-2]] + [P[-1]] + P + [P[0]] #Добавим точки для оборачивания угла
             for i in range (0, len(P)-3):
                 spline_points.extend(cubic_hermite(height, P[i], P[i+1], P[i+2], P[i+3], num_points, tau_correction(P[i], P[i+1], P[i+2], P[i+3], tau)))
             spline_points = spline_points + [spline_points[0]]
         else:#Для незамкнутой линии
-            P = [P[0]] + P + [P[-1]]
+            P = [P[0]] + P + [P[-1]] #Продублируем точки в начале и конце
             for i in range (0, len(P)-3):
                 spline_points.extend(cubic_hermite(height, P[i], P[i+1], P[i+2], P[i+3], num_points, tau_correction(P[i], P[i+1], P[i+2], P[i+3], tau)))
 
@@ -341,3 +341,36 @@ class GeometryTools:
             return True
 
         return False  # Отрезки не пересекаются и не смежные
+    @staticmethod
+    def calculate_intersection(p1, p2, p3, p4):
+        """
+        Вычисляет точку пересечения двух отрезков.
+
+        :param p1: Начальная точка первого отрезка, объект Point.
+        :param p2: Конечная точка первого отрезка, объект Point.
+        :param p3: Начальная точка второго отрезка, объект Point.
+        :param p4: Конечная точка второго отрезка, объект Point.
+        :return: Точка пересечения отрезков, объект Point, или None, если отрезки не пересекаются.
+        """
+        from triangulation_classes import Point
+
+        x1, y1 = p1.x, p1.y
+        x2, y2 = p2.x, p2.y
+        x3, y3 = p3.x, p3.y
+        x4, y4 = p4.x, p4.y
+
+        denominator = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+
+        if denominator == 0:
+            return None  # Отрезки параллельны или совпадают
+
+        t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denominator
+        u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denominator
+
+        if 0 <= t <= 1 and 0 <= u <= 1:
+            intersection_x = x1 + t * (x2 - x1)
+            intersection_y = y1 + t * (y2 - y1)
+            intersection_z = p1.z + t * (p2.z - p1.z)
+            return Point(intersection_x, intersection_y, intersection_z)
+        else:
+            return None  # Отрезки не пересекаются
