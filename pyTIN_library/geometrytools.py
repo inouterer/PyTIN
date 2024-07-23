@@ -94,136 +94,6 @@ class GeometryTools:
         self.polygon =  polyline
         return polyline, noodles
 
-    
-
-    def CatmullRomChain(self, P, nPoints, alpha):
-        """Barry and Goldman's pyramidal formulation  Centripetal Catmull–Rom spline
-
-        Args:
-            P (list): List of Point objects representing control points.
-            nPoints (int): Number of points to generate on the curve.
-            alpha (float): tau parameter.
-
-        Returns:
-            list: List of Point objects representing points on the Catmull-Rom spline.
-        """
-
-        def pyramidalFormulation(P0, P1, P2, P3, nPoints, alpha):
-            def knotParameters(ti, Pi, Pj):
-                xi, yi, zi = Pi.x, Pi.y, Pi.z
-                xj, yj, zj = Pj.x, Pj.y, Pj.z
-                return ((xj - xi) ** 2 + (yj - yi) ** 2 + (zj - zi) ** 2) ** (alpha / 2) + ti
-
-            t0 = 0
-            t1 = knotParameters(t0, P0, P1)
-            t2 = knotParameters(t1, P1, P2)
-            t3 = knotParameters(t2, P2, P3)
-
-            t = [t1 + (t2 - t1) * i / nPoints for i in range(nPoints)]
-
-            A1_x = [(t1 - t_val) / (t1 - t0) * P0.x + (t_val - t0) / (t1 - t0) * P1.x for t_val in t]
-            A1_y = [(t1 - t_val) / (t1 - t0) * P0.y + (t_val - t0) / (t1 - t0) * P1.y for t_val in t]
-
-            A2_x = [(t2 - t_val) / (t2 - t1) * P1.x + (t_val - t1) / (t2 - t1) * P2.x for t_val in t]
-            A2_y = [(t2 - t_val) / (t2 - t1) * P1.y + (t_val - t1) / (t2 - t1) * P2.y for t_val in t]
-
-            A3_x = [(t3 - t_val) / (t3 - t2) * P2.x + (t_val - t2) / (t3 - t2) * P3.x for t_val in t]
-            A3_y = [(t3 - t_val) / (t3 - t2) * P2.y + (t_val - t2) / (t3 - t2) * P3.y for t_val in t]
-
-            B1_x = [(t2 - t_val) / (t2 - t0) * A1_x[i] + (t_val - t0) / (t2 - t0) * A2_x[i] for i, t_val in enumerate(t)]
-            B1_y = [(t2 - t_val) / (t2 - t0) * A1_y[i] + (t_val - t0) / (t2 - t0) * A2_y[i] for i, t_val in enumerate(t)]
-
-            B2_x = [(t3 - t_val) / (t3 - t1) * A2_x[i] + (t_val - t1) / (t3 - t1) * A3_x[i] for i, t_val in enumerate(t)]
-            B2_y = [(t3 - t_val) / (t3 - t1) * A2_y[i] + (t_val - t1) / (t3 - t1) * A3_y[i] for i, t_val in enumerate(t)]
-
-            C_x = [(t2 - t_val) / (t2 - t1) * B1_x[i] + (t_val - t1) / (t2 - t1) * B2_x[i] for i, t_val in enumerate(t)]
-            C_y = [(t2 - t_val) / (t2 - t1) * B1_y[i] + (t_val - t1) / (t2 - t1) * B2_y[i] for i, t_val in enumerate(t)]
-
-            return [Point(C_x[i], C_y[i], 0) for i in range(len(t))]
-
-        length = len(P)
-        Curve = []
-        length = len(P)
-        Curve = []
-        if len(P) < 4:
-            return P
-        
-        
-        if P[0] == P[-1]:  # If the curve is closed
-            c = pyramidalFormulation(P[0], P[1], P[2], P[3], nPoints, alpha)
-            for i in range(length - 3):
-                c = pyramidalFormulation(P[i], P[i + 1], P[i + 2], P[i + 3], nPoints, alpha)
-                Curve.extend(c)
-            last = pyramidalFormulation(P[-3], P[-2], P[-1], P[1], nPoints, alpha)
-            first = pyramidalFormulation(P[-2], P[0], P[1], P[2], nPoints, alpha)
-            Curve = Curve + [P[-2]] + last[1:] + [P[0]] + first [1:] + [P[1]] # Здесь пришлось собирать
-        else:  # If the curve is not closed
-            for i in range(length - 3):
-                c = pyramidalFormulation(P[i], P[i + 1], P[i + 2], P[i + 3], nPoints, alpha)
-                Curve.extend(c)
-            Curve = [P[0]] + Curve + [P[-1]] # Добавим первый и последний отрезок кривой
-
-        return Curve
-
-
-        
-    def catmull_rom_spline(self, P, num_points = 10, tau=0.5):
-        """Генерирует точки Catmull-Rom сплайна для замкнутои незамкнутой полилинии.
-        
-        У замкнутой последняя точка должна равняться первой"""
-
-        def catmull_rom_matrix(height, p0, p1, p2, p3, num_points = 10, tau=0.5):
-            """Генерирует точки Catmull-Rom сплайна для одного сегмента (нужна полилиния из 4 точек)."""
-            # Матрица коэффициентов Catmull-Rom
-            m = [
-                [-tau, 2-tau, tau-2, tau],
-                [2*tau, tau-3, 3-2*tau, -tau],
-                [-tau, 0, tau, 0],
-                [0, 1, 0, 0]
-            ]
-            
-            points = []
-            for i in range(num_points):
-                t = i / float(num_points - 1)
-                t2 = t * t
-                t3 = t2 * t
-                
-                # Вектор времени
-                t_vector = [t3, t2, t, 1]
-                
-                # Вычисление координат x и y с помощью матричного умножения
-                x = (t_vector[0]*m[0][0] + t_vector[1]*m[1][0] + t_vector[2]*m[2][0] + t_vector[3]*m[3][0]) * p0.x \
-                    + (t_vector[0]*m[0][1] + t_vector[1]*m[1][1] + t_vector[2]*m[2][1] + t_vector[3]*m[3][1]) * p1.x \
-                    + (t_vector[0]*m[0][2] + t_vector[1]*m[1][2] + t_vector[2]*m[2][2] + t_vector[3]*m[3][2]) * p2.x \
-                    + (t_vector[0]*m[0][3] + t_vector[1]*m[1][3] + t_vector[2]*m[2][3] + t_vector[3]*m[3][3]) * p3.x
-                    
-                y = (t_vector[0]*m[0][0] + t_vector[1]*m[1][0] + t_vector[2]*m[2][0] + t_vector[3]*m[3][0]) * p0.y \
-                    + (t_vector[0]*m[0][1] + t_vector[1]*m[1][1] + t_vector[2]*m[2][1] + t_vector[3]*m[3][1]) * p1.y \
-                    + (t_vector[0]*m[0][2] + t_vector[1]*m[1][2] + t_vector[2]*m[2][2] + t_vector[3]*m[3][2]) * p2.y \
-                    + (t_vector[0]*m[0][3] + t_vector[1]*m[1][3] + t_vector[2]*m[2][3] + t_vector[3]*m[3][3]) * p3.y
-                    
-                points.append(Point(x, y, height))
-            
-            return points
-  
-        # Создание сплайна
-        height = P[0].z
-        spline_points = []
-        if len(P) < 3:
-            return P
-        if P[0] == P[-1]:
-            del P[-1]
-            P = [P[-2]] + [P[-1]] + P + [P[0]]
-            for i in range (0, len(P)-3):
-                spline_points.extend(catmull_rom_matrix(height, P[i], P[i+1], P[i+2], P[i+3], num_points, tau))
-            spline_points = spline_points + [spline_points[0]]
-        else:
-            P = [P[0]] + P + [P[-1]]
-            for i in range (0, len(P)-3):
-                spline_points.extend(catmull_rom_matrix(height, P[i], P[i+1], P[i+2], P[i+3], num_points, tau))
-
-        return spline_points
-
 
 
     def cubic_hermite_spline(self, P, num_points = 10, tau=0.5):
@@ -236,26 +106,28 @@ class GeometryTools:
             return (dx ** 2 + dy ** 2) ** 0.5
         
         
-        def tau_correction(p1,p2,p3,p4, tau):
+        def tau_correction(p1,p2,p3,p4, tau=0):
             """Коррекция натяжение на участках, где управляющие отрезки значительно длиннее итерируемого"""
             l1 = distance_between_points(p1,p2)
             l2 = distance_between_points(p2,p3)
             l3 = distance_between_points(p3,p4)
-            
-            if l1==0:
-                tau_corr = l2/l3
-            elif l3 == 0:
-                tau_corr = l2/l1
+            if l1 == 0 and l3 ==0: # Случай, если изолиния из одного сегмента?
+                tau_corr = 0
             else:
-                tau_corr = min (l2/l1 , l2/l3)
-            
+                if l1==0:
+                    tau_corr = l2/l3
+                elif l3 == 0:
+                    tau_corr = l2/l1
+                else:
+                    tau_corr = min (l2/l1 , l2/l3)
+                
             if tau_corr < 1:
                 tau*=tau_corr
             return tau
 
         def cubic_hermite(height, p0, p1, p2, p3, num_points, tau):
             """Создать точки к среднему сегменту в квадруплексе"""
-            from triangulation_classes import Point
+            from pyTIN_library.triangulation_classes import Point
             
             points = []
             
@@ -341,6 +213,7 @@ class GeometryTools:
             return True
 
         return False  # Отрезки не пересекаются и не смежные
+    
     @staticmethod
     def calculate_intersection(p1, p2, p3, p4):
         """
@@ -352,7 +225,7 @@ class GeometryTools:
         :param p4: Конечная точка второго отрезка, объект Point.
         :return: Точка пересечения отрезков, объект Point, или None, если отрезки не пересекаются.
         """
-        from triangulation_classes import Point
+        from pyTIN_library.triangulation_classes import Point
 
         x1, y1 = p1.x, p1.y
         x2, y2 = p2.x, p2.y

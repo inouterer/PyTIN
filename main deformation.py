@@ -5,7 +5,7 @@ from triangulation_classes import Point
 from visualisation import plot_triangulation
 from visualisation import visualize_contours
 
-from sample_data import point_in, trn_in, real, real_levels, user_bounds, real_bounds
+from input_data.sample_data import point_in, trn_in, real, real_levels, user_bounds, real_bounds
 
 # Сгенерируем точки по исходному набору в формате [x,y,z,...]
 def input_data (point_in):

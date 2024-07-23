@@ -1,8 +1,68 @@
-from geometrytools import GeometryTools
-from triangulation_classes import IsoLine, Isocontour, Point, HeightLeveler
+from pyTIN_library.geometrytools import GeometryTools
+from pyTIN_library.triangulation_classes import IsoLine, Point, HeightLeveler
 
 from typing import List
 
+class Isocontour:
+    """Изоконтуры это замкнутые фигуры между изолиниями"""
+    def __init__(self, points=None):
+        self.level_index = 0
+        self.from_height = 0
+        self.to_height = 0
+        self.points = points if points is not None else []  # Инициализация как пустой список, если points не передан
+        self.rgb_color = ()
+
+    def add_points(self, points):
+        self.points.extend(points)
+
+    def get_contour_points(self):
+        return self.points
+
+    def clear_contour_points(self):
+        self.points = []  # Очистка как список
+
+    def calculate_area(self):
+        if len(self.points) < 3:  # Площадь не может быть вычислена, если менее 3 точек
+            return 0
+
+        area = 0
+        n = len(self.points)
+        for i in range(n):
+            x1, y1 = self.points[i].x, self.points[i].y
+            x2, y2 = self.points[(i + 1) % n].x, self.points[(i + 1) % n].y
+            area += x1 * y2 - x2 * y1
+        return abs(area) / 2
+    
+    def find_point_inside(self, allpoints):
+        """
+        Находит любую точку из набора allpoints, которая находится внутри изоконтура.
+        Возвращает z-координату первой найденной точки, находящейся внутри контура, или None.
+        """
+       
+        def is_point_inside_polygon(x, y, epsilon=0.01):
+            """
+            Проверяет, находится ли точка (x, y) внутри многоугольника с учетом допустимого расстояния от границы epsilon.
+            Алгоритм: метод лучевого преобразования (Ray Casting method).
+            """
+            n = len(self.points)
+            inside = False
+
+            px, py = x, y
+            for i in range(n):
+                x1, y1 = self.points[i].x, self.points[i].y
+                x2, y2 = self.points[(i + 1) % n].x, self.points[(i + 1) % n].y
+                if ((y1 > py) != (y2 > py)) and (px < (x2 - x1) * (py - y1) / (y2 - y1) + x1):
+                    if abs((x2 - x1) * (py - y1) - (y2 - y1) * (px - x1)) / ((x2 - x1)**2 + (y2 - y1)**2)**0.5 < epsilon:
+                        return True
+                    inside = not inside
+            return inside
+
+        for point in allpoints:
+            if is_point_inside_polygon(point.x, point.y):
+                return point.z
+
+        return self.points[0].z
+    
 
 class IsoConturer:
     """
@@ -127,28 +187,30 @@ class IsoConturer:
             return
         
         
-        def define_isocontour_levels(self, isocontour):
+        def define_loop_isocontour_levels(self, isocontour):
+            """Определить интервал высот или значений замкнутого изоконтура
+
+            Args:
+                isocontour (bool): _description_
+            """
             # Определим высоту изоконтура по отметке первой вершины и по отметке точки из набора данных внутри него:
             # Найдём высоту первой точки, если она маркирована, тоесть относится к изолинии
             fpoint_z = None
             for isocontour_point in isocontour.points: #Переберем точки изоконтура
-                if isocontour_point.marked == True: #Пока не найдём маркированную - это выход графа
+                if isocontour_point.marked == True: #Пока не найдём маркированную - это выход изолини на граф
                     fpoint_z = isocontour_point.z
             if not fpoint_z: #Если высоты нет, значит это замкнутая изолиния
                 fpoint_z = isocontour.points[0].z
             # Если точка выше первого узла изолинии то нижняя высота будет равна высоте точки, а верхння + шаг
             if fpoint_z < isocontour.find_point_inside(self.allpoints):
-                isocontour.from_height = fpoint_z
-                isocontour.to_height = fpoint_z + 1
                 isocontour.level_index = HeightLeveler.get_level_index_by_heigh_from(fpoint_z, self.levels)
+                isocontour.from_height = self.levels[isocontour.level_index].height_from
+                isocontour.to_height = self.levels[isocontour.level_index].height_to
             else:
                 # Иначе, это верхняя высота, а нижняя минус шаг
-                isocontour.from_height= fpoint_z - 1
-                isocontour.to_height  = fpoint_z
                 isocontour.level_index = HeightLeveler.get_level_index_by_heigh_to(fpoint_z, self.levels)
-            isocontour.rgb_color = self.levels[isocontour.level_index].color_rgb
-            if fpoint_z == isocontour.find_point_inside(self.allpoints):
-                return
+                isocontour.from_height = self.levels[isocontour.level_index].height_from
+                isocontour.to_height = self.levels[isocontour.level_index].height_to
         
         #Здесь мы создаём точки графа, проходя по контуру объекта на его узлах и
         #на входах и выходах изолиний в порядке по часовой
@@ -177,29 +239,32 @@ class IsoConturer:
         trace_isocontour()
 
         #Находим диапазоны изолиний
+        #        
+        levels_list = HeightLeveler.extract_levels_as_list(self.levels)#Извлечем списком уровни
         for isocontour in self.isocontours:#переберем изоконтуры
             levels = []
             for point in isocontour.points:
-                levels.append(point.z)
-            if min(levels) == max(levels):
-                define_isocontour_levels(self, isocontour)
+                levels.append(point.z) #соберем все высоты точек в контуре
+            if min(levels) == max(levels):#Если все высоты одинаковы, то это замкнутый контур
+                define_loop_isocontour_levels(self, isocontour)#Отправляем искать внутреннюю точку и определять интервал
+            elif min(levels) in levels_list:
+                isocontour.level_index = HeightLeveler.get_level_index_by_heigh_from(min(levels), self.levels)#Ищем Уровень, с таким НИЖНИМ значением
+            elif max(levels) in levels_list:
+                isocontour.level_index = HeightLeveler.get_level_index_by_heigh_to(max(levels), self.levels)#Ищем Уровень, с таким ВЕРХНИМ значением
             else:
-                isocontour.level_index = HeightLeveler.get_level_index_by_heigh_to(max(levels), self.levels)
-                if isocontour.level_index:            
-                    isocontour.rgb_color = self.levels[isocontour.level_index].color_rgb
-                else:
-                    define_isocontour_levels(self, isocontour)
+                print (f'Нет уровня!!! {min(levels)} - {max(levels)}')
+            isocontour.rgb_color = self.levels[isocontour.level_index].color_rgb # Присваиваем цвет
 
-            
         
         # Сортировка списка по площади для корректного отображения изоконтуров на карте
         self.isocontours.sort(key=lambda contour: contour.calculate_area(), reverse=True)
 
-        # for isocontour in self.isocontours:
-        #     print (isocontour.points[0].z)
 
     def interpolate_color(self, min_level, max_height, from_height, to_height):
-        """Интерполяция градиента для изоконтуров"""
+        """
+        Интерполяция градиента для изоконтуров
+        
+        """
         
         # Нормализуем высоты к интервалу [0, 1]
         norm_from_height = (from_height - min_level) / (max_height - min_level)

@@ -93,7 +93,7 @@ def centripetal_catmull_rom_spline(p0, p1, p2, p3, num_points=10, tension=0.5):
 control_points = [Point(-100, 0), Point(2, 2), Point(3, 1.9), Point(54, 3), Point(100, 0), Point(-100, 0)]
 
 num_points = 10
-tau = 0.0001
+tau = 0.25
 
 
 # Создание сплайна

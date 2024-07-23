@@ -1,11 +1,11 @@
 from triangulation import Triangulation
 from isocontourer import IsoConturer
 from triangulation_classes import Point
-
+from triangulation_classes import Point, HeightLeveler
 from visualisation import plot_triangulation
-from visualisation import visualize_contours
+from visualisation import visualize_profile
 
-from sample_data import point_in, trn_in, real, real_levels, user_bounds, real_bounds
+from input_data.sample_data import point_in, trn_in, real, real_levels, user_bounds, real_bounds
 
 # Сгенерируем точки по исходному набору в формате [x,y,z,...]
 def input_data (point_in):
@@ -40,18 +40,18 @@ surface.custom_bounds = custom_bounds_points
 #Добавим пользовательские внешние границы в набор точек
 surface.insert_custom_bound_points()
 
-#Снова триангулируем
-surface.triangulate(points)
 #Фильтруем треугольники по максимальной длине и минимальному углу
-surface.filter_triangles(5)
+#surface.filter_triangles(5)
 surface.remove_outer_triangles()
 
 surface.get_bounds()
 #surface.levels = [-32]
 
 #Генерируем уровни
-step = 1
-surface.define_contours_levels(0,step)
+step = 2
+map_levels = HeightLeveler(HeightLeveler.define_contours_levels(surface.points, step))
+map_levels.interpolate_color()
+surface.levels = map_levels.get_correct_isolines_levels(surface.points) #Извлекаем уровни для изолиний
 
 #Строим изолинии
 surface.build_contour_lines()
@@ -62,15 +62,15 @@ surface.cull_contour_lines(1)
 surface.smooth_contour_lines(10, 0.5)
 
 #Визуализация в matplotlib
-plot_triangulation(surface)
+#plot_triangulation(surface)
 
 #Создаём граф для изоконтуров
-graf = IsoConturer(surface.levels, points)
+graf = IsoConturer(map_levels.levels, points)
 #Добавляем туда границы сетки
 graf.add_bounds(surface.bounds)
 #Добавляем изолинии
-graf.add_isolines(surface.sm_contour_lines)
+graf.add_isolines(surface.sm_contour_lines.copy())
 #Строим изоконтура
-graf.build_isocontours(step)
+graf.build_isocontours()
 #Показываем
-visualize_contours(graf.points, surface.points, graf.isolines, graf.bounds, graf.isocontours)
+visualize_profile(graf.points, surface.points, graf.isolines, graf.bounds, graf.isocontours)

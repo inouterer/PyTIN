@@ -95,7 +95,7 @@ points = [
 ]
 
 # Запуск алгоритма Catmull-Rom с указанием параметра alpha
-nPoints = 5
+nPoints = 10
 alpha = 0.5
 curve_points = CatmullRomChain(points, nPoints, alpha)
 

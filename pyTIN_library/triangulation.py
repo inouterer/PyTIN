@@ -1,13 +1,24 @@
-from typing import List
-from triangulation_classes import Triangle
-from triangulation_classes import Edge
-from triangulation_classes import Point
-from triangulation_classes import IsoLine
-from geometrytools import GeometryTools
+from pyTIN_library.triangulation_classes import Triangle
+from pyTIN_library.triangulation_classes import Edge
+from pyTIN_library.triangulation_classes import Point
+from pyTIN_library.triangulation_classes import IsoLine
+from pyTIN_library.geometrytools import GeometryTools
 import copy
 
 class Triangulation: 
-    """ Это главный класс поверхности на основе триангуляции Делоне"""
+    """
+    Это главный класс поверхности на основе триангуляции Делоне
+    
+    Attributes:
+        triangles (list): список треугольников, образующих триангуляцию
+        bounds (list): границы поверхности
+        custom_bounds (list): пользовательские границы
+        contour_lines (list): линии контуров
+        sm_contour_lines (list): малые линии контуров
+        isocontours (list): изолинии
+        points (list): точки, используемые для триангуляции
+        levels (list): уровни поверхности
+    """
     EPS = 1e-7 #величина для округления
     def __init__(self):
         self.triangles = []
@@ -18,29 +29,27 @@ class Triangulation:
         self.isocontours = []
         self.points = []
         self.levels = []
-
-    def add_triangle(self, triangle):
-        self.triangles.append(triangle)
-
-    def remove_triangle(self, triangle):
-        self.triangles.remove(triangle)
-
-    def clear_triangles(self):
-        self.triangles = []
-
+    
     ###########################################
     #   Методы для построения триангуляции    #        
-    ###########################################    
-    
+    ###########################################
     
     def triangulate(self, points):
-        """Функция, находящая триангуляцию"""
+        """
+        Функция, находящая триангуляцию Делоне для заданного набора точек методом Бовьера-Ваттсона.
+        
+        Args:
+            points (list): Список точек для триангуляции.
+        
+        Returns:
+            list: Список треугольников, формирующих триангуляцию.
+        """
         self.points = points
         n = len(points)
         if n < 3:
             return []  # Треугольников нет
 
-        #Работаем с копией массива точек, сортируем по X
+        #Работаем с копией массива точек, сортируем по X, что является оптимизацией
         points_copy = sorted(points, key=lambda p: p.x)
         
         #Ищем большой треугольник
@@ -50,14 +59,15 @@ class Triangulation:
         points_copy+= big
         
         #Делаем текущим супертреугольник и добавим в массив
-        # Создаем ребра из этих точек
+        #Создаем ребра из этих точек
         edges = [Edge(points_copy[n], points_copy[n+1]), Edge(points_copy[n], points_copy[n+2]),\
                 Edge(points_copy[n+1], points_copy[n+2])]
         # Создаем треугольник из этих ребер и в список
         cur_triangles = [Triangle(*edges)]
 
-        badEdges = [] #Ребра улалённых треугольников 
-        edges = []
+        badEdges = [] #Ребра удалённых треугольников 
+        edges = [] #Обнуляем массив ребер
+        
         #Перебираем все точки с конца кроме точек супертреугольника
         for i in range(n-1, -1, -1):
             #Перебираем все треугольники
@@ -100,7 +110,6 @@ class Triangulation:
                 cur_triangles.append(Triangle(*new_edges))
                 k-=1 
             badEdges = []
-            #plot_triangulation(cur_triangles, points_copy)
             
         #Теперь удалим треугольники от точек супертреугольника
         t = len(cur_triangles) - 1
@@ -111,8 +120,10 @@ class Triangulation:
                     break
                 break
             t -= 1
-        self.triangles = cur_triangles
-        #self.get_bounds() #Сразу вставим границы текущей триангуляции
+        self.triangles = cur_triangles #Сразу вставим границы текущей триангуляции
+        #self.get_bounds() #А можно и вычислить границы
+        print(f'Num of triangles in triangulation: {len(cur_triangles)}')
+        
     
     def is_triangle_boundary(self, triangle):
         """
@@ -120,6 +131,7 @@ class Triangulation:
 
         :param triangle: Треугольник, объект класса Triangle.
         :return: True, если треугольник граничный, False в противном случае.
+        
         """
         edges_count = 0
         for other_triangle in self.triangles:
@@ -131,13 +143,17 @@ class Triangulation:
         return edges_count < 3
     
     def get_bounds(self):
-        """Граница треугольников помещается в атрибут bounds"""
+        
+        """
+        Определяет границы триангуляции и сохраняет их в атрибут bounds. Это потребуется при обработке изоконтуров
+        
+        """
         edges = []
         for triangle in self.triangles:
             for edge in triangle.edges:
                 edges.append(edge)
-        copy_edges = edges.copy()
-        print(len(copy_edges))
+        copy_edges = edges.copy()#Работаем с копией
+        print(f'Num of edges to get bounds of triangulation: {len(copy_edges)}')
         #Удаляем кратные ребра
         contour_edges = self.delete_multiples_edges(copy_edges)
         #Преобразуем список непарных ребер в список пар точек
@@ -151,9 +167,12 @@ class Triangulation:
         self.bounds = pmanager.polygon #Получаем точки границы триангуляции
 
     
-    #Функция, удаляющая кратные ребра (птимизированная функция)
     def delete_multiples_edges (self, copy_edges):
-        """Удаляем кратные ребра."""
+        """
+        
+        Функция, удаляющая кратные ребра (оптимизированная функция).
+        
+        """
         e = len(copy_edges) #Создаём копию списка
         #Итерируем с конца списка
         while e>0:
@@ -167,23 +186,14 @@ class Triangulation:
                     e-=1 # После удаления уменьшаем индекс два раза на 1 (здесь и в начале цикла)
                     break    
         return copy_edges
-    
-    #Функция, удаляющая кратные ребра (неоптимизированная функция - не удаляет данные)
-    def delete_multiples_edges4(self, edges):
-        """Удаляем кратные ребра."""
-        contour_edges = []
-        for edge in edges:
-            count = 0
-            for other_edge in edges:
-                if edge == other_edge:
-                    count += 1
-            if count == 1:
-                contour_edges.append(edge)
-            count = 0
-        return contour_edges
+
 
     def make_big_triangle(self, points):
-        """Создаём большой треугольник, включающий все точки набора  """
+        """
+        
+        Создаём большой треугольник, включающий все точки набора
+        
+        """
         minx = min(p.x for p in points)
         maxx = max(p.x for p in points)
         miny = min(p.y for p in points)
@@ -201,8 +211,12 @@ class Triangulation:
 
     
     def filter_triangles(self, min_angle):
-        """Удалить из триангуляции треугольники не соответствующие критериям
-        по минимальному углу и длине ребра"""
+        """
+        
+        Удалить из триангуляции треугольники не соответствующие критериям
+        по минимальному углу и длине ребра. НЕДОРЕАЛИЗОВАНО
+        
+        """
         if self.triangles == []:
             return []
         filtered_triangles = []
@@ -244,54 +258,20 @@ class Triangulation:
         y = y1 + t * (y2 - y1)
         return Point(x, y, h)
 
-    
-    def define_contours_levels(self, low, step=1):
-        """Определяет список отметок по заданному шагу."""
-        if not self.points:
-            return []
-
-        min_height = min(point.z for point in self.points)
-        max_height = max(point.z for point in self.points)
-
-        # Создать список интервалов, начиная с 0
-        height_values = []
-        current_height = low
-        
-        while current_height <= max_height:
-            height_values.append(current_height)
-            current_height += step
-        
-        # Отфильтровать интервалы в пределах от min_height до max_height
-        height_values = [height for height in height_values if min_height <= height <= max_height]
-        
-        # Если минимальная высота не входит в интервалы, добавляем её в начало
-        if height_values[0] > min_height:
-            height_values.insert(0, min_height)
-        
-        # Если максимальная высота не входит в интервалы, добавляем её в конец
-        if height_values[-1] < max_height:
-            height_values.append(max_height)
-        
-        self.levels = height_values
-        return
-    
-    def correct_levels(self):
-        eps = 0.01  # Малая величина для коррекции высоты изолиний, сотая доля шага
-        corrected_levels = []
-        for cur_level in self.levels:
-            # Проверяем и корректируем высоту, чтобы избежать точного совпадения с высотами точек
-            while any(point.z == cur_level for point in self.points):
-                    cur_level -= eps
-            corrected_levels.append(cur_level)
-        self.levels = corrected_levels
-        print (self.levels)
-
 
     def build_contour_lines (self):
-        """Построение изолиний"""
+        """
+        
+        Построение изолиний
+        
+        """
         
         def trace_contour_line(height: float):
-            """Трассируем изолинии. Просто итерируются все треугольники и по ним строятся отдельные ребра изолиний"""
+            """
+            Трассируем изолинии.
+            Просто итерируются все треугольники и по ним строятся отдельные ребра изолиний
+            
+            """
             contour_edges = []
             for triangle in self.triangles:
                 #Находим точки изолинии в треугольнике
@@ -327,7 +307,9 @@ class Triangulation:
     def cull_contour_lines (self, threshold=0.1):
         """Прореживает полилинии.
         
-        Помогает уменьшить каракули возле отметок, когда их высота близка к уровню изолинии """
+        Помогает уменьшить каракули возле отметок, когда их высота близка к уровню изолинии 
+        
+        """
         cull_contour_lines = []
         gutils = GeometryTools()
         for contour_line in self.contour_lines:
@@ -337,13 +319,17 @@ class Triangulation:
         return
     
     def smooth_contour_lines (self, nPoints=10, alpha=0.5):
-        """Сгладить полилинию"""
+        """
+        
+        Сгладить полилинию
+        
+        """
         smooth_contour_lines = []
-        gutils = GeometryTools()
+        g_tools = GeometryTools()
         for contour_line in self.contour_lines:
             points = copy.copy(contour_line.points)
             smooth_contour_line = IsoLine(height=contour_line.height)         
-            smooth_contour_line.points = gutils.cubic_hermite_spline(points, nPoints, alpha)
+            smooth_contour_line.points = g_tools.cubic_hermite_spline(points, nPoints, alpha)
             smooth_contour_lines.append(smooth_contour_line)
         self.sm_contour_lines = smooth_contour_lines
 
@@ -379,23 +365,30 @@ class Triangulation:
             min_distance = min(distances)
             closest_point_index = distances.index(min_distance)
             point.z = self.points[closest_point_index].z
-        #Теперь проверим, не попадают ли точки на треугольники и интерполируем с них высоту
-        for point in self.custom_bounds:
-            for triangle in self.triangles:
-                if triangle.is_inside_triangle(point):
-                    point.z = triangle.interpolate_z(point)
+        # #Теперь проверим, не попадают ли точки на треугольники и интерполируем с них высоту - отклонено
+        # for bound_point in self.custom_bounds:
+        #     for triangle in self.triangles:
+        #         if triangle.is_inside_triangle(bound_point):
+        #             bound_point.z = triangle.interpolate_z(bound_point)
         self.points.extend(self.custom_bounds) #Добавим точки в границы
+        self.triangulate(self.points)
         #В финале проверим отрезки границ, проходят ли они через треугольники.
         #Если да то добавим в центре пересечения точки с отметками
         n= len(self.custom_bounds)
+        tri_points = []
         for ind in range(n):
             p1 = self.custom_bounds[ind]
             p2 = self.custom_bounds[(ind + 1) % n]  # использование операции модуля для циклического обхода списка вершин
             for triangle in self.triangles:
                 addpoint = triangle.get_point_by_line(p1, p2)
                 if isinstance(addpoint, Point):  # Проверка, является ли элемент точкой
-                    self.points.append(addpoint)
-       
+                        tri_points.append(addpoint)
+                        #print(f'{addpoint.x} {addpoint.y} {addpoint.z}')
+        self.points.extend(tri_points)
+        self.points = list(set(self.points)) #Прекрасный способ избавиться от дубликатов - преобразовать во множество и обратно в список
+        self.triangulate(self.points)
+        self.remove_outer_triangles()
+        self.get_bounds()
         return
     
     def remove_outer_triangles(self):

@@ -1,4 +1,3 @@
-from traceback import print_list
 import numpy as np  # Импортируем numpy для генерации случайных цветов
 import matplotlib.pyplot as plt
 import time
@@ -164,3 +163,35 @@ def visualize_profile(graf_points, points, isolines, custom_bounds, isocontours)
     execution_time = end_time - start_time
     print(f"Время выполнения: {execution_time} секунд")
     plt.show()
+
+
+
+import plotly.graph_objects as go
+
+def plotly_iso(isocontours, points):
+    fig = go.Figure()
+
+    for isocontour in isocontours:
+        x = [point.x for point in isocontour.points]
+        y = [point.y for point in isocontour.points]
+        rgb_color = 'rgb({},{},{})'.format(isocontour.rgb_color[0], isocontour.rgb_color[1], isocontour.rgb_color[2])
+        
+        fig.add_trace(go.Scatter(x=x, y=y, fill='toself', fillcolor=rgb_color, line=dict(color='gray', width=0.5), name=f'{isocontour.from_height} - {isocontour.to_height}'))
+
+    for point in points:
+        fig.add_trace(go.Scatter(x=[point.x], y=[point.y], mode='markers', marker=dict(color='red', size=5), name=point.name))
+
+    for point in points:
+        fig.add_trace(go.Scatter(x=[point.x], y=[point.y], mode='text', text=[f'{point.name} {round(point.z,1)}'], textposition='top center', textfont=dict(size=10, color='black')))
+
+    fig.update_layout(title='Изоконтуры и точки с подписями',
+                      xaxis_title='X',
+                      yaxis_title='Y',
+                      xaxis_scaleanchor='y',
+                      yaxis_scaleanchor='x',
+                      showlegend=False)
+
+    fig.show()
+
+
+

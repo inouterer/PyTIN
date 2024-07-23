@@ -1,13 +1,14 @@
 import math
 import pandas as pd
-from geometrytools import GeometryTools
+from pyTIN_library.geometrytools import GeometryTools
 
 class Point:
     """
     Точки с отметкой высоты
     """
     
-    def __init__(self, x=0, y=0, z=0):
+    def __init__(self, x=0, y=0, z=0, name=''):
+        self.name = name
         self.x = x
         self.y = y
         self.z = z
@@ -45,8 +46,9 @@ class Point:
                 intersections += 1
 
         return intersections % 2 == 1
+    
     @staticmethod
-    def import_xyz_csv(path, offset=0):
+    def import_nxyz_csv(path, offset=0):
         """
         Получат точки из CSV.
 
@@ -55,7 +57,7 @@ class Point:
         points = [] # Создание пустого списка для хранения объектов Point
         # Проход по каждой строке значений z
         for index, row in df.iloc[0:].iterrows():
-            points.append(Point(row[offset+0], row[offset+1], row[offset+2]))
+            points.append(Point(row[offset+1], row[offset+2], row[offset+3], row[offset+0]))
         return points
    
 
@@ -356,63 +358,7 @@ class Triangle:
         return interpolated_z
 
 
-class Isocontour:
-    """Изоконтуры это замкнутые фигуры между изолиниями"""
-    def __init__(self, points=None):
-        self.level_index = 0
-        self.from_height = 0
-        self.to_height = 0
-        self.points = points if points is not None else []  # Инициализация как пустой список, если points не передан
-        self.rgb_color = ()
-
-    def add_points(self, points):
-        self.points.extend(points)
-
-    def get_contour_points(self):
-        return self.points
-
-    def clear_contour_points(self):
-        self.points = []  # Очистка как список
-
-    def calculate_area(self):
-        if len(self.points) < 3:  # Площадь не может быть вычислена, если менее 3 точек
-            return 0
-
-        area = 0
-        n = len(self.points)
-        for i in range(n):
-            x1, y1 = self.points[i].x, self.points[i].y
-            x2, y2 = self.points[(i + 1) % n].x, self.points[(i + 1) % n].y
-            area += x1 * y2 - x2 * y1
-        return abs(area) / 2
-    
-    def find_point_inside(self, allpoints):
-        """
-        Находит любую точку из набора allpoints, которая находится внутри изоконтура.
-        Возвращает z-координату первой найденной точки, находящейся внутри контура, или None.
-        """
-        def is_point_inside_polygon(x, y):
-            """
-            Проверяет, находится ли точка (x, y) внутри многоугольника.
-            Алгоритм: метод лучевого преобразования (Ray Casting method).
-            """
-            n = len(self.points)
-            inside = False
-
-            px, py = x, y
-            for i in range(n):
-                x1, y1 = self.points[i].x, self.points[i].y
-                x2, y2 = self.points[(i + 1) % n].x, self.points[(i + 1) % n].y
-                if ((y1 > py) != (y2 > py)) and (px < (x2 - x1) * (py - y1) / (y2 - y1) + x1):
-                    inside = not inside
-            return inside
-
-        for point in allpoints:
-            if is_point_inside_polygon(point.x, point.y):
-                return point.z
-
-        return self.points[0].z
-    
+  
 class HeightLevel:
     """
     Класс Level представляет уровень с высотой "от" и "до" и цветом RGB.
@@ -423,14 +369,14 @@ class HeightLevel:
     - color_rgb: кортеж с тремя значениями RGB в 16-ричной форме
     """
 
-    def __init__(self, level_index, height_from, height_to, color_rgb):
+    def __init__(self, level_index, height_from, height_to, color_rgb=None):
         """
         Инициализирует объект Level с заданными высотами и цветом RGB.
         """
         self.level_index = level_index
         self.height_from = height_from
         self.height_to = height_to
-        self.color_rgb = color_rgb
+        self.color_rgb = self.color_rgb = color_rgb[:] if color_rgb is not None else []
 
     def __str__(self):
         """
@@ -456,7 +402,7 @@ class HeightLeveler:
 
     """
 
-    def __init__(self, levels=[]):
+    def __init__(self, levels=None):
         """
         Инициализирует объект Levels с заданным списком уровней.
 
@@ -464,8 +410,6 @@ class HeightLeveler:
         levels (list): Список уровней.
         """
         self.levels = levels[:] if levels is not None else [] #Этот тернарный оператор сделает копию списка levels или если не указано создаст пустой список
-        self.corrected_levels = []
-        self.intervals = []
     
     def __str__(self):
         """
@@ -496,6 +440,7 @@ class HeightLeveler:
                 levels.append(level)
         return levels
     
+    
     @staticmethod
     def get_level_index_by_heigh_from(value, levels):
         """
@@ -508,7 +453,8 @@ class HeightLeveler:
         int: Индекс уровня или None, если уровень не найден.
         """
         # Ищем индекс уровня с заданной нижней отметкой
-        index = next((index for index, level in enumerate(levels) if level.height_from == round(value, 1)), None)
+        # index = next((index for index, level in enumerate(levels) if level.height_from == round(value, 1)), None)
+        index = next((index for index, level in enumerate(levels) if level.height_from == value), None)
         if index is not None:
             return index
         else:
@@ -526,36 +472,59 @@ class HeightLeveler:
         int: Индекс уровня или None, если уровень не найден.
         """
         # Ищем индекс уровня с заданной нижней отметкой
-        index = next((index for index, level in enumerate(levels) if level.height_to == round(value, 1)), None)
+        # index = next((index for index, level in enumerate(levels) if level.height_to == round(value, 1)), None)
+        index = next((index for index, level in enumerate(levels) if level.height_to == value), None)
         if index is not None:
             return index
         else:
             return None
 
-    
-    def define_contours_levels(self, bottom, top, step=1):
+
+    @staticmethod
+    def define_contours_levels(points, step=1, low=None):
         """Определяет список отметок по заданному шагу."""
-        # Создать список интервалов, начиная с bottom
+        #Вычислим предельные высоты и округлим до десятых
+        min_height = math.floor(min(point.z for point in points))
+        max_height = math.ceil(max(point.z for point in points))
+
+        # Создать список интервалов, начиная с 0 или low
         height_values = []
-        current_height = bottom
-        
-        while current_height <= top:
+        if not low:
+            low = round (min_height)
+        current_height = low
+        while current_height <= max_height:
             height_values.append(current_height)
             current_height += step
-        print(height_values)       
         
-        # Отфильтровать интервалы в пределах от bottom до top
-        height_values = [height for height in height_values if bottom <= height <= top]
-        print(height_values)
+        # Отфильтровать интервалы в пределах от min_height до max_height
+        height_values = [height for height in height_values if min_height <= height <= max_height]
+        
         # Если минимальная высота не входит в интервалы, добавляем её в начало
-        if height_values[0] > bottom:
-            height_values.insert(0, bottom)
+        if height_values[0] > min_height:
+            height_values.insert(0, min_height)
         
         # Если максимальная высота не входит в интервалы, добавляем её в конец
-        if height_values[-1] < top:
-            height_values.append(top)
-        self.levels = height_values
-        return
+        if height_values[-1] < max_height:
+            height_values.append(max_height)
+        
+        corrected_levels = []
+        eps = 0.01  # Малая величина для коррекции высоты изолиний, сотая доля шага
+        for cur_level in height_values:
+            # Проверяем и корректируем высоту, чтобы избежать точного совпадения с высотами точек
+            while any(point.z == cur_level for point in points):
+                if cur_level <= 0:
+                    cur_level += eps
+                else:
+                    cur_level -= eps
+            corrected_levels.append(cur_level)
+        
+        levels = []
+        n = len(corrected_levels)-1
+        for ind in range(n):
+            h1 = corrected_levels[ind]
+            h2 = corrected_levels[ind+1]  
+            levels.append(HeightLevel(ind,h1,h2,))
+        return levels
     
     def get_correct_isolines_levels(self, points):
         """
@@ -581,29 +550,47 @@ class HeightLeveler:
                 else:
                     cur_level -= eps
             corrected_levels.append(cur_level)
+        
+        #Скорректируем отметки и в Height_Level, иначе будут проблемы с определением высот изоконтуров
+        for index, lvl in enumerate(self.levels):
+            lvl.height_from = corrected_levels[index]
+            lvl.height_to = corrected_levels[index+1]
+
+        
         return corrected_levels
     
-    def make_intervals(self):
-        """Создает список интервалов между уровнями."""
-        self.intervals = []
-        for i in range(len(self.levels) - 1):
-            interval = (self.levels[i], self.levels[i + 1], self.interpolate_color(self.levels[i]))
-            self.intervals.append(interval)
-        print (self.intervals)
 
     
-    def interpolate_color(self, from_height):
+    def interpolate_color(self):
         """Интерполяция градиента для изоконтуров"""
-        # Нормализуем высоты к интервалу [0, 1]
-        norm_from_height = (from_height - self.levels[0]) / (self.levels[-1] - self.levels[0])
-        if norm_from_height < 0:
-            norm_from_height = 0
-        # Находим компоненты RGB цвета для синего, зеленого и красного
-        blue = 1.0 - norm_from_height  # Синий уменьшается с ростом высоты
-        green = 1.0 - abs(norm_from_height - 0.5) * 2  # Зеленый максимален посередине, минимален на краях
-        red = norm_from_height  # Красный увеличивается с ростом высоты
-        # Конвертируем значения компонентов в диапазон [0, 255]
-        blue = int(blue * 255)
-        green = int(green * 255)
-        red = int(red * 255)       
-        return (red, green, blue)
+        from_height = self.levels[0].height_from
+        to_height = self.levels[-1].height_from
+        for level in self.levels:
+            # Нормализуем высоты к интервалу [0, 1]
+            norm_from_height = (level.height_from - from_height)  / (to_height - from_height)
+            if norm_from_height < 0:
+                norm_from_height = 0
+            # Находим компоненты RGB цвета для синего, зеленого и красного
+            blue = 1.0 - norm_from_height  # Синий уменьшается с ростом высоты
+            green = 1.0 - abs(norm_from_height - 0.5) * 2  # Зеленый максимален посередине, минимален на краях
+            red = norm_from_height  # Красный увеличивается с ростом высоты
+            # Конвертируем значения компонентов в диапазон [0, 255]
+            blue = int(blue * 255)
+            green = int(green * 255)
+            red = int(red * 255)       
+            level.color_rgb = [red, green, blue]
+        return
+    
+    @staticmethod
+    def extract_levels_as_list (levels):
+        """Просто список уровней
+
+        Args:
+            levels (_type_): _description_
+        """
+        levels_list = []
+        for level in levels:
+            levels_list.append(level.height_from)
+        levels_list.append(levels[-1].height_to)
+        print (f'extract_levels_as_list {levels_list}')
+        return levels_list

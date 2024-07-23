@@ -1,11 +1,11 @@
-from triangulation import Triangulation
-from isocontourer import IsoConturer
-from triangulation_classes import Point
+from pyTIN_library.triangulation import Triangulation
+from pyTIN_library.isocontourer import IsoConturer
+from pyTIN_library.triangulation_classes import Point
+from pyTIN_library.triangulation_classes import Point, HeightLevel, HeightLeveler
+from pyTIN_library.visualisation import plot_triangulation
+from pyTIN_library.visualisation import visualize_profile, plotly_iso
 
-from visualisation import plot_triangulation
-from visualisation import visualize_contours
-
-from sample_data import point_in, trn_in, real, real_levels, user_bounds, real_bounds
+from input_data.sample_data import point_in, trn_in, real, real_levels, user_bounds, real_bounds
 
 # Сгенерируем точки по исходному набору в формате [x,y,z,...]
 def input_data (point_in):
@@ -22,36 +22,26 @@ rnd_points = [Point(random.uniform(min_coord, max_coord), random.uniform(min_coo
 
 points = rnd_points
 
-#points = input_data(point_in) #Создали список объектов класса Points по рабочему набору
-# custom_bounds_points =  input_data(user_bounds) #Создали список объектов класса Points по пользовательскому контуру
-# real_bounds_points =  input_data(real_bounds)
-
 #Создаём поверхность
 surface = Triangulation()
 #Добавляем в поверхность списком точки класса Points и создаём триангулляцию.
 surface.triangulate(points)
-#Фильтруем треугольники по максимальной длине и минимальному углу
-#surface.filter_triangles(20, 1)
-#Определяем границы триангуляции по внешним рёбрам треугольников
-surface.get_bounds()
 
-#Добавим пользовательские внешние границы
-# surface.custom_bounds = custom_bounds_points
+#Добавим границы
+surface.custom_bounds = Point.import_nxyz_csv('input_data\\random_bounds.csv', 0)
+surface.insert_custom_bound_points()
 
-#Добавим пользовательские внешние границы в набор точек
-# surface.insert_custom_bounds()
-
-#Снова триангулируем
-surface.triangulate(points)
-#surface.remove_outer_triangles()
-surface.get_bounds()
 
 #Генерируем уровни
 step = 1
-surface.define_contours_levels(10, step)
+map_levels = HeightLeveler(HeightLeveler.define_contours_levels(surface.points, step))
+map_levels.interpolate_color()
+surface.levels = map_levels.get_correct_isolines_levels(surface.points) #Извлекаем уровни для изолиний
+print(surface.levels)
 
 #Строим изолинии
 surface.build_contour_lines()
+
 
 #Прорежаем изолинии
 surface.cull_contour_lines(1)
@@ -62,12 +52,13 @@ surface.smooth_contour_lines(10, 0.5)
 #plot_triangulation(surface)
 
 #Создаём граф для изоконтуров
-graf = IsoConturer(surface.levels, points)
+graf = IsoConturer(map_levels.levels, points)
 #Добавляем туда границы сетки
 graf.add_bounds(surface.bounds)
 #Добавляем изолинии
-graf.add_isolines(surface.sm_contour_lines)
+graf.add_isolines(surface.sm_contour_lines.copy())
 #Строим изоконтура
-graf.build_isocontours(step)
+graf.build_isocontours()
 #Показываем
-visualize_contours(graf.points, surface.points, graf.isolines, graf.bounds, graf.isocontours)
+#visualize_profile(graf.points, surface.points, graf.isolines, graf.bounds, graf.isocontours)
+plotly_iso(graf.isocontours, surface.points)
